@@ -46,7 +46,7 @@ shared      ← cannot import any other layer
 
 ## Same-Layer Isolation
 
-A slice **MUST NOT** import another slice on the same layer.
+A slice **MUST NOT** import from a _different_ slice on the same layer. Imports between segments within the same slice are allowed.
 
 ```ts
 // FORBIDDEN — feature importing another feature
@@ -61,8 +61,6 @@ When one entity must reference a type or value from another entity on the same l
 // src/entities/order/@x/user.ts — re-exports only what order needs from user
 export type { UserId } from "@/entities/user/model"
 ```
-
-See `docs/layers/entities.md` for full guidance.
 
 ## Slice Structure
 
