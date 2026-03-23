@@ -29,7 +29,7 @@ import { useLoginMutation } from "../api"
 import { authSchema } from "../lib/validation"
 ```
 
-**Import order** (ESLint-enforced):
+**Import order** (Convention — not tool-enforced):
 
 1. External packages (`react`, `react-query`, etc.)
 2. Internal `@/` imports
@@ -45,6 +45,8 @@ import { userSchema } from "@/entities/user"
 import { loginFormSchema } from "../lib/validation"
 import styles from "./LoginForm.module.css"
 ```
+
+**Formatting** — Prettier runs automatically on every commit via lint-staged. You do not need to format manually.
 
 ---
 
@@ -78,7 +80,7 @@ docs: update layer guide for widgets
 chore: upgrade vite to 5.2
 test(env): add coverage for isProd flag
 refactor(order): extract price calculation to shared util
-perf(product-list): virtualize long lists with react-window
+perf(shared): optimize axios instance request batching
 ```
 
 ---
@@ -86,7 +88,7 @@ perf(product-list): virtualize long lists with react-window
 ## Component Conventions
 
 - **One component per file** — do not export multiple components from a single file.
-- **Named exports only** — do not use default exports for components.
+- **Named exports only** — do not use default exports anywhere in the project (components, hooks, utilities, stores, etc.).
 
 ```ts
 // Correct

@@ -39,7 +39,7 @@ Exports an `env` object that provides typed access to
 ```ts
 import { env } from "@/shared/config"
 
-const baseUrl = env.VITE_API_BASE_URL
+const baseUrl = env.apiBaseUrl
 ```
 
 ### `shared/lib/`

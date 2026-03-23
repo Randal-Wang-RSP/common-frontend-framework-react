@@ -58,8 +58,8 @@ import { getProfile } from "@/features/profile" // inside features/auth
 When one entity must reference a type or value from another entity on the same layer, use the `@x` pattern instead of a direct slice import.
 
 ```ts
-// src/entities/order/@x/user.ts — re-exports only what order needs from user
-export type { UserId } from "@/entities/user/model"
+// src/entities/user/@x/order.ts — re-exports only what the order entity is allowed to use from user
+export type { UserId } from "../model"
 ```
 
 ## Slice Structure

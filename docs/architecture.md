@@ -47,6 +47,15 @@ Business domain objects: `user`, `order`, `product`. Entities are purely data an
 
 Reusable infrastructure with **zero business domain knowledge**: UI primitives (Button, Input), the HTTP client instance, generic utilities, and constants. Nothing in `shared` knows about users, orders, or any other domain concept.
 
+```
+shared/
+  api/      # Axios instance and interceptors
+  config/   # Typed environment variable accessors
+  lib/      # Generic utility functions
+  store/    # Zustand re-exports
+  ui/       # Reusable UI primitives (wrapping Ant Design)
+```
+
 ---
 
 ## Slice Structure
@@ -89,9 +98,9 @@ Entities live on the same layer, so they cannot import each other directly (that
 3. Entity `A` imports from `@/entities/b/@x/a`
 
 ```ts
-// src/entities/order/@x/user.ts
-// Re-exports only what the `user` entity needs from `order`
-export type { OrderSummary } from "../model/types"
+// src/entities/user/@x/order.ts
+// Re-exports only what the `order` entity is allowed to use from `user`
+export type { UserId } from "../model/types"
 ```
 
 This makes cross-entity dependencies **explicit, minimal, and auditable**. See `docs/layers/entities.md` for a full walkthrough.
