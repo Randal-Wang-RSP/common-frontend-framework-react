@@ -8,15 +8,8 @@ export const apiInstance = axios.create({
   },
 })
 
-apiInstance.interceptors.request.use((config) => {
-  const token = localStorage.getItem("auth_token")
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-  return config
-})
-
-apiInstance.interceptors.response.use(
-  (response) => response,
+// Request interceptor — add auth token injection here (e.g., in features/auth)
+apiInstance.interceptors.request.use(
+  (config) => config,
   (error) => Promise.reject(error)
 )

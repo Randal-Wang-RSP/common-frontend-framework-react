@@ -2,3 +2,4 @@
 // Feature stores: create in features/<name>/model/use<Name>Store.ts
 export { create } from "zustand"
 export type { StateCreator, StoreApi, UseBoundStore } from "zustand"
+export { devtools } from "zustand/middleware"

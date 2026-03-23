@@ -2,7 +2,7 @@ import { env } from "./env"
 
 describe("env", () => {
   it("exposes apiBaseUrl with /api fallback", () => {
-    expect(env.apiBaseUrl).toBe(import.meta.env.VITE_API_BASE_URL ?? "/api")
+    expect(env.apiBaseUrl).toBe("/api")
   })
 
   it("exposes isDev as boolean", () => {
