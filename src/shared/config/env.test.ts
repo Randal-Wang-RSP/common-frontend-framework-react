@@ -12,4 +12,8 @@ describe("env", () => {
   it("exposes mode as string", () => {
     expect(typeof env.mode).toBe("string")
   })
+
+  it("exposes isProd as boolean", () => {
+    expect(typeof env.isProd).toBe("boolean")
+  })
 })
