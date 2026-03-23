@@ -1,3 +1,11 @@
+import { AppRouter } from "./router"
+import { Providers } from "./providers"
+import "./styles/index.css"
+
 export function App() {
-  return <div id="app" />
+  return (
+    <Providers>
+      <AppRouter />
+    </Providers>
+  )
 }

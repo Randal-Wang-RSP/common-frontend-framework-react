@@ -3,7 +3,6 @@ import { App } from "./index"
 
 describe("App", () => {
   it("renders without crashing", () => {
-    render(<App />)
-    expect(document.getElementById("app")).toBeInTheDocument()
+    expect(() => render(<App />)).not.toThrow()
   })
 })
