@@ -1,0 +1,118 @@
+# CLAUDE.md — Architecture Context for AI Coding Tools
+
+This file gives AI assistants the context needed to write correct code in this project.
+
+## Project Type
+
+React project template based on **Feature-Sliced Design (FSD)**.
+
+## Tech Stack
+
+- **React 18 + Vite + TypeScript** (strict mode enabled)
+- **CSS Modules + Ant Design** — styling and UI components
+- **Zustand** — client-side state management
+- **TanStack Query (React Query)** — server-state / async data fetching
+- **React Router v7** — client-side routing
+- **Vitest + jsdom** — unit and component testing
+
+## Path Alias
+
+`@/` maps to `src/`.
+
+- All cross-layer and cross-slice imports **MUST** use `@/`.
+- Relative imports (`./`, `../`) are only allowed **within the same slice/segment**.
+
+```ts
+// correct — cross-layer import
+import { Button } from "@/shared/ui"
+import { useAuthStore } from "@/features/auth/model"
+
+// wrong — relative import crossing slice boundary
+import { Button } from "../../shared/ui"
+```
+
+## FSD Layers and Import Rules
+
+Layers are listed top-to-bottom. Each layer may only import from layers **below** it.
+
+```
+app         ← can import: pages, widgets, features, entities, shared
+pages       ← can import: widgets, features, entities, shared
+widgets     ← can import: features, entities, shared
+features    ← can import: entities, shared
+entities    ← can import: shared
+shared      ← cannot import any other layer
+```
+
+## Same-Layer Isolation
+
+A slice **MUST NOT** import another slice on the same layer.
+
+```ts
+// FORBIDDEN — feature importing another feature
+import { getProfile } from "@/features/profile" // inside features/auth
+```
+
+## Cross-Entity References (`@x` Pattern)
+
+When one entity must reference a type or value from another entity on the same layer, use the `@x` pattern instead of a direct slice import.
+
+```ts
+// src/entities/order/@x/user.ts — re-exports only what order needs from user
+export type { UserId } from "@/entities/user/model"
+```
+
+See `docs/layers/entities.md` for full guidance.
+
+## Slice Structure
+
+Each slice contains the following segments (only create what is needed):
+
+```
+sliceName/
+  ui/         # React components
+  model/      # state, stores, hooks, types
+  api/        # API calls and query hooks
+  lib/        # utilities local to this slice
+  config/     # constants and configuration
+  index.ts    # public API barrel — only export what consumers need
+```
+
+Each segment exposes its public API via an `index.ts` barrel file.
+
+## Shared Layer Segments
+
+```
+shared/
+  api/        # base HTTP client, interceptors
+  config/     # app-wide constants and env vars
+  lib/        # generic utilities and helpers
+  store/      # shared Zustand store utilities
+  ui/         # generic, reusable UI components
+```
+
+## Test Co-location
+
+Tests live next to the source file they test, named `*.test.ts` or `*.test.tsx`.
+
+```
+model/
+  authStore.ts
+  authStore.test.ts
+```
+
+## Commit Format
+
+Conventional Commits: `<type>(<scope>): <description>`
+
+Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `revert`
+
+```
+feat(auth): add JWT refresh logic
+fix(cart): prevent duplicate item entries
+chore(deps): upgrade react-router to v7
+```
+
+## ESLint Enforcement
+
+FSD import rules are enforced by `eslint-plugin-boundaries`. Violations block commits via pre-commit hooks — fix them before committing.
