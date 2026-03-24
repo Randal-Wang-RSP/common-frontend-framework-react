@@ -1,6 +1,7 @@
-# CLAUDE.md — Architecture Context for AI Coding Tools
+# CLAUDE.md — Coding Rules for AI Coding Tools
 
-This file gives AI assistants the context needed to write correct code in this project.
+This file gives AI assistants the rules needed to write correct code in this project.
+For deep architectural explanations see [`docs/architecture.md`](docs/architecture.md).
 
 ## Project Type
 
@@ -33,7 +34,9 @@ import { Button } from "../../shared/ui"
 
 ## FSD Layers and Import Rules
 
-Layers are listed top-to-bottom. Each layer may only import from layers **below** it.
+> Full reference: [`docs/architecture.md`](docs/architecture.md)
+
+Layers (top → bottom). Each layer may only import from layers **below** it.
 
 ```
 app         ← can import: pages, widgets, features, entities, shared
@@ -64,7 +67,7 @@ export type { UserId } from "../model"
 
 ## Slice Structure
 
-Each slice contains the following segments (only create what is needed):
+Each slice contains segments (only create what is needed):
 
 ```
 sliceName/
@@ -76,7 +79,15 @@ sliceName/
   index.ts    # public API barrel — only export what consumers need
 ```
 
-Each segment exposes its public API via an `index.ts` barrel file.
+Code outside the slice **must** import from the `index.ts` barrel, never from internal files directly.
+
+```ts
+// Correct
+import { LoginForm } from "@/features/auth"
+
+// Wrong — imports an internal file directly
+import { LoginForm } from "@/features/auth/ui/LoginForm"
+```
 
 ## Shared Layer Segments
 
@@ -88,6 +99,8 @@ shared/
   store/      # shared Zustand store utilities
   ui/         # generic, reusable UI components
 ```
+
+`shared` has **zero business domain knowledge** — no user, order, or other domain concepts.
 
 ## Test Co-location
 
