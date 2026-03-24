@@ -204,3 +204,26 @@ A common evolution path:
 **Signal to demote from Tier 1 → Tier 2:** a section only matters when editing a specific layer.  
 **Signal to extract Tier 2 → Tier 4:** content describes correct usage rather than forbidden usage.  
 **Signal to create Tier 3:** the same multi-step task keeps being requested manually.
+
+---
+
+## CLEAR as a Writing Quality Checklist
+
+The **CLEAR framework** (Concise / Logical / Explicit / Adaptive / Reflective) operates at a different level from the five-element framework — the two are orthogonal and complementary:
+
+| Framework | Answers | Layer |
+|-----------|---------|-------|
+| Five-element (Role / Context / Tasks / Constraints / Examples) | **What to include** — content structure | Structural |
+| CLEAR | **How to write it well** — quality standard | Quality |
+
+Use CLEAR as a review checklist after drafting any tier file:
+
+| CLEAR element | For Copilot specifically | Checklist question |
+|---------------|--------------------------|-------------------|
+| **Concise** | Token budget is consumed on every request | Can half the words be removed without losing constraint effect? |
+| **Logical** | Front of file has higher attention weight | Is the most critical `❌` near the top, not buried in section 6? |
+| **Explicit** | Pattern-matching driven — code beats prose | Does every rule have a concrete `✅/❌` code example? |
+| **Adaptive** | Context-scoped injection via `applyTo` | Is the `applyTo` glob precise — does this rule actually apply everywhere it would fire? |
+| **Reflective** | Instructions should reflect real violations, not hypothetical ones | Is this rule based on an actual mistake that happened, or a precaution that was never tested? |
+
+The four-tier architecture is itself an expression of the Adaptive principle: content is delivered only when and where it is relevant, rather than injected globally at all times.
