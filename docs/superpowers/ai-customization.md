@@ -127,6 +127,54 @@ description: >
 
 ---
 
+## Prompt Frameworks and Copilot — What Actually Works
+
+### The Five-Element Framework (Role / Context / Tasks / Constraints / Examples)
+
+This framework is popular for general-purpose prompting. Its applicability to Copilot varies significantly by element:
+
+| Element | Copilot effectiveness | Reason |
+|---------|----------------------|--------|
+| **Role** | Weak | Copilot does not "adopt a persona". Role declarations have minimal effect on code completion behaviour. |
+| **Context** | **Strong** | The most important element. Telling Copilot the project type, architecture, and tech stack directly improves generation quality. |
+| **Tasks** | Not applicable | Tasks come from the user at request time. Putting tasks in a system prompt is the wrong layer — use `.prompt.md` for task workflows instead. |
+| **Constraints** | **Strong** | Centralised `❌` prohibitions are the single highest-impact content in `copilot-instructions.md`. Scattered constraints are partially ignored. |
+| **Examples** | **Strong** | `✅/❌` code pairs outperform prose rules by a significant margin. Copilot is pattern-matching driven, not instruction-driven. |
+
+**Effective subset for Copilot:** Context → Constraints → Examples. Role is low-value; Tasks belong elsewhere.
+
+### Why Copilot Responds Differently from Agent Tools
+
+Copilot (inline completion + Chat) is fundamentally **pattern-matching driven**, not instruction-following driven. This has practical consequences:
+
+| Behaviour | Implication |
+|-----------|-------------|
+| Does not actively read linked docs | Links in system prompts are for human reference, not for Copilot to follow |
+| Front of file has higher weight | Most critical constraints should appear early in `copilot-instructions.md` |
+| Code examples > prose rules | A `// ❌ wrong` + `// ✅ right` pair is more effective than a sentence describing the rule |
+| Token budget is consumed every request | Every extra line of prose dilutes signal density |
+
+### Copilot Modes and System Prompt Priorities
+
+`copilot-instructions.md` is shared across all three modes. The content most valuable to each mode differs:
+
+| Mode | Primary benefit from system prompt | Secondary |
+|------|------------------------------------|-----------|
+| **Agent** | Never Do constraints (prevent wrong file writes) | Workflow pointers |
+| **Plan** | Workflow section (shapes planning quality) | Context / Architecture |
+| **Ask** | Context and Architecture (answers questions correctly) | Constraints |
+
+Since Copilot processes the file top-to-bottom, the recommended section order is:
+
+```
+Context + Architecture   ← Ask needs this; foundation for all modes
+Never Do                 ← Agent priority; high weight when violations block commits  
+Patterns (✅/❌)         ← Agent code generation quality
+Workflow                 ← Agent + Plan; comes last, not needed on every request
+```
+
+---
+
 ## Skills vs. Instructions — Key Distinction
 
 > **Instructions constrain. Skills inform.**
