@@ -145,6 +145,7 @@ Types: `feat | fix | docs | style | refactor | test | chore | perf | revert`
 
 > Detailed layer conventions auto-load via `.github/instructions/` when editing files in that layer.
 > Complex multi-step tasks: use `.github/prompts/` prompt files.
+> Deep library patterns (Zustand, React Query, FSD refactoring): see `.github/skills/`.
 
 **Adding a new feature slice:**
 1. Create `src/features/<name>/` with only the segments you need
