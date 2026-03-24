@@ -1,20 +1,29 @@
 # common-frontend-framework-react
 
-A React project template based on Feature-Sliced Design (FSD). Clone this as the starting point for new projects.
+A React project template based on Feature-Sliced Design (FSD). Clone this repo, or use the one-liner below to let an AI agent scaffold a new project from scratch.
+
+## One-Liner Initialization
+
+Paste this instruction into any AI coding assistant (GitHub Copilot, Claude Code, etc.) to initialize a new project from scratch:
+
+```
+Initialize a new React FSD project by following the instructions at:
+https://raw.githubusercontent.com/<your-username>/common-frontend-framework-react/main/docs/installation.md
+```
+
+> Replace `<your-username>` with your GitHub username after pushing this repo.
 
 ## Tech Stack
 
-- React 18
-- Vite
-- TypeScript
-- CSS Modules
-- Ant Design
-- Zustand
-- TanStack Query
+- React 18 + Vite + TypeScript (strict mode)
+- CSS Modules + Ant Design
+- Zustand (client state) + TanStack Query (server state)
 - React Router v7
-- Vitest
+- Vitest + jsdom
+- ESLint (`eslint-plugin-boundaries` enforces FSD import rules)
+- Prettier + Husky + lint-staged + commitlint
 
-## Getting Started
+## Getting Started (clone approach)
 
 ```bash
 # Clone the template
