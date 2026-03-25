@@ -1,5 +1,8 @@
 # AGENTS.md — Coding Guidelines for AI Agents
 
+**Generated:** 2026-03-25
+**Mode:** init-deep --max-depth=2 (update)
+
 ## Quick Commands
 
 ```bash
