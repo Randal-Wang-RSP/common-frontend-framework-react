@@ -17,7 +17,7 @@ Layers import **downward only** — never upward, never sideways across the same
 app → pages → widgets → features → entities → shared
 ```
 
-Each layer’s responsibility:
+Each layer's responsibility:
 - **`app/`** — providers, router, global styles. No slices.
 - **`pages/`** — one slice per route. Compose widgets/features.
 - **`widgets/`** — large self-contained UI blocks.
@@ -136,12 +136,12 @@ Types: `feat | fix | docs | style | refactor | test | chore | perf | revert`
 
 ## Agent Rules
 
-**Language:** Thinking and response text follow the user’s language. Code, comments, documentation, commit messages, and PR content are **always in English**.
+**Language:** Thinking and response text follow the user's language. Code, comments, documentation, commit messages, and PR content are **always in English**.
 
 **Branch-first:** Always create a feature branch before writing any code — never commit directly to `main` or `development`.
 
-**Commit/PR review:** Before executing `git commit` or creating a PR, display the proposed message in the response text (not inside tool calls) and wait for confirmation.
+**Commit/PR review:** Before executing `git commit` or creating a PR, display the proposed message in the response text, then call `vscode_askQuestions` with confirm/edit/cancel options. Never execute without tool-based confirmation.
 
 **Iterative workflow:** If new changes arise after a commit, re-enter the workflow from the appropriate step — assess, stage, show message, commit. Never skip steps.
 
-**Session end gate:** Before ending a session or yielding control, **always** call `vscode_askQuestions` to ask the user about the next action. Include context-appropriate options and a "pause/stop" choice.
+**Session end gate:** After completing any task or yielding control, **always** call `vscode_askQuestions` to ask the user about the next action. Include context-appropriate options and a "pause/stop" choice. This applies after every commit, push, PR creation, or code change — not only at session end.

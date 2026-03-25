@@ -161,7 +161,7 @@ Copilot (inline completion + Chat) is fundamentally **pattern-matching driven**,
 | Mode | Primary benefit from system prompt | Secondary |
 |------|------------------------------------|-----------|
 | **Agent** | Never Do constraints (prevent wrong file writes) | Agent Rules |
-| **Plan** | Workflow section (shapes planning quality) | Context / Architecture |
+| **Plan** | Agent Rules (shapes planning quality) | Context / Architecture |
 | **Ask** | Context and Architecture (answers questions correctly) | Constraints |
 
 Since Copilot processes the file top-to-bottom, the recommended section order is:
