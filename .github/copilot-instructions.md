@@ -6,6 +6,11 @@ React template using **Feature-Sliced Design (FSD)** architecture, TypeScript st
 
 **Tech stack:** React 18 · Vite · TypeScript · CSS Modules · Ant Design · Zustand · TanStack Query · React Router v7 · Vitest
 
+**Repository:**
+- **Hosting:** Bitbucket
+- **CI/CD:** Jenkins
+- **Code quality:** SonarQube
+
 > Architecture deep-dive: [`docs/architecture.md`](../docs/architecture.md)
 > Naming & import conventions: [`docs/conventions.md`](../docs/conventions.md)
 > Layer-specific guides: [`docs/layers/`](../docs/layers/)
@@ -89,25 +94,9 @@ export type { UserId } from "../model"
 import type { UserId } from "@/entities/user/@x/order"
 ```
 
-**Named exports only:**
+**Named exports only** — no `export default` anywhere in the project.
 
-```ts
-// ✅
-export function UserCard({ user }: UserCardProps): JSX.Element { ... }
-
-// ❌
-export default function UserCard() { ... }
-```
-
-**Explicit return types on exported functions:**
-
-```ts
-// ✅
-export function formatDate(date: Date): string { ... }
-
-// ❌
-export function formatDate(date: Date) { ... }
-```
+**Explicit return types** on all exported functions.
 
 **Import order:**
 
@@ -137,7 +126,35 @@ import styles from "./LoginForm.module.css"
 **Commits:** `feat(auth): add JWT refresh logic` · `fix(cart): prevent duplicate items`  
 Types: `feat | fix | docs | style | refactor | test | chore | perf | revert`
 
+**Atomic commits:** split changes by type — code, tests, docs, config in separate commits. Stage selectively (`git add <files>`), not `git add -A`.
+
 **Env vars:** prefix client-side vars with `VITE_`
+
+---
+
+## Git Workflow
+
+> Full reference: [`.github/skills/git-workflow/SKILL.md`](skills/git-workflow/SKILL.md)
+
+**Branching model:** Git Flow — `main` (production) + `development` (integration) + short-lived feature/fix/release/hotfix branches.
+**Branch naming:** `<type>/<scope>-<short-description>` (e.g., `feat/auth-jwt-refresh`, `fix/cart-duplicate-items`)
+**Merge strategy:** Squash Merge for features → `development`; Merge Commit for releases/hotfixes → `main`.
+**Protected branches:** `main` and `development` — no direct push, PR + 1 approval required.
+**Versioning:** Semantic Versioning `v<MAJOR>.<MINOR>.<PATCH>` — tags prefixed with `v`.
+
+---
+
+## Agent Rules
+
+**Language:** Thinking and response text follow the user's language. Code, comments, documentation, commit messages, and PR content are **always in English**.
+
+**Branch-first:** Always create a feature branch before writing any code — never commit directly to `main` or `development`.
+
+**Commit/PR review:** Before executing `git commit` or creating a PR, display the proposed message in the response text (not inside tool calls) and wait for confirmation.
+
+**Iterative workflow:** If new changes arise after a commit, re-enter the workflow from the appropriate step — assess, stage, show message, commit. Never skip steps.
+
+**Session end gate:** Before ending a session or yielding control, **always** call `vscode_askQuestions` to ask the user about the next action. Include context-appropriate options and a "pause/stop" choice.
 
 ---
 
