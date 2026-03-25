@@ -150,7 +150,7 @@ Types: `feat | fix | docs | style | refactor | test | chore | perf | revert`
 
 **Branch-first:** Always create a feature branch before writing any code — never commit directly to `main` or `development`.
 
-**Commit/PR review:** Before executing `git commit` or creating a PR, display the proposed message to the user and wait for confirmation.
+**Commit/PR review:** Before executing `git commit` or creating a PR, display the proposed message in the response text (not inside tool calls) and wait for confirmation.
 
 **Iterative workflow:** If new changes arise after a commit, re-enter the workflow from the appropriate step — assess, stage, show message, commit. Never skip steps.
 
