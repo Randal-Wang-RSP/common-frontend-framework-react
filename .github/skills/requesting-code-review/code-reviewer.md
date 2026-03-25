@@ -32,21 +32,32 @@ git diff {BASE_SHA}..{HEAD_SHA}
 **Code Quality:**
 - Clean separation of concerns?
 - Proper error handling?
-- Type safety (if applicable)?
+- Type safety — no `any`, explicit return types on exported functions?
 - DRY principle followed?
 - Edge cases handled?
+- Named exports only — no `export default`?
+- No direct imports of `zustand` or `axios` — use `@/shared/store` and `@/shared/api`?
+- Naming conventions: `PascalCase` components/types, `camelCase` functions/hooks, `kebab-case` files?
+- Import order: external packages → `@/` imports → relative imports?
 
-**Architecture:**
+**Architecture (FSD):**
+- Layer imports flow downward only (`app → pages → widgets → features → entities → shared`)?
+- No same-layer cross-slice imports?
+- Cross-layer imports use `@/` alias (no relative `../../` across slices)?
+- Cross-entity references use `@x` pattern?
+- All external access goes through `index.ts` barrel — no deep imports?
+- `shared` layer has zero business domain logic?
+- Slice structure follows convention (`ui/`, `model/`, `api/`, `lib/`, `config/`, `index.ts`)?
+- `eslint-plugin-boundaries` passes with no violations?
 - Sound design decisions?
-- Scalability considerations?
 - Performance implications?
 - Security concerns?
 
 **Testing:**
 - Tests actually test logic (not mocks)?
 - Edge cases covered?
-- Integration tests where needed?
-- All tests passing?
+- Tests co-located with source (`file.ts` → `file.test.ts`)?
+- All tests passing (`npm run test:run`)?
 
 **Requirements:**
 - All plan requirements met?
@@ -54,8 +65,14 @@ git diff {BASE_SHA}..{HEAD_SHA}
 - No scope creep?
 - Breaking changes documented?
 
+**Commits:**
+- Conventional Commits format (`<type>(<scope>): <description>`)?
+- Atomic commits — code, tests, docs in separate commits?
+- Selective staging (`git add <files>`), not `git add -A`?
+
 **Production Readiness:**
-- Migration strategy (if schema changes)?
+- ESLint passes (`npm run lint`)?
+- TypeScript compiles (`npm run build`)?
 - Backward compatibility considered?
 - Documentation complete?
 - No obvious bugs?
