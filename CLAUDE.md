@@ -124,6 +124,46 @@ fix(cart): prevent duplicate item entries
 chore(deps): upgrade react-router to v7
 ```
 
+## Atomic Commits
+
+Split changes into **logically separate commits** — do not mix code, tests, and docs in one commit.
+
+- Stage selectively: `git add <specific-files>`, not `git add -A`
+- Commit order: code → tests → docs → config
+
+```
+# ✅ separate commits
+git add src/features/auth/ && git commit -m "feat(auth): add login form"
+git add src/features/auth/model/useAuthStore.test.ts && git commit -m "test(auth): add store tests"
+
+# ❌ everything in one commit
+git add -A && git commit -m "feat(auth): add login form, tests, and docs"
+```
+
+## Git Workflow
+
+> Full reference: [`.github/skills/git-workflow/SKILL.md`](.github/skills/git-workflow/SKILL.md)
+
+**Branching:** Git Flow — `main` (production) + `development` (integration) + short-lived `feat/`, `fix/`, `hotfix/`, `release/` branches.
+
+**Branch naming:** `<type>/<scope>-<short-description>` (e.g., `feat/auth-jwt-refresh`)
+
+**Merge strategy:** Squash Merge for features → `development`; Merge Commit for releases/hotfixes → `main`.
+
+**Protected branches:** `main` and `development` — no direct push, PR + 1 approval required.
+
+**Versioning:** `v<MAJOR>.<MINOR>.<PATCH>` (Semantic Versioning)
+
+**Repository:** Bitbucket · CI/CD: Jenkins · Code quality: SonarQube
+
+## Agent Rules
+
+**Language:** Thinking and response text follow the user's language. Code, comments, documentation, commit messages, and PR content are **always in English**.
+
+**Branch-first:** Always create a feature branch before writing any code — never commit directly to `main` or `development`.
+
+**Session end gate:** Before ending a session or yielding control, **always** call `vscode_askQuestions` to ask the user about the next action. Include context-appropriate options and a "pause/stop" choice.
+
 ## ESLint Enforcement
 
 FSD import rules are enforced by `eslint-plugin-boundaries`. Violations block commits via pre-commit hooks — fix them before committing.
