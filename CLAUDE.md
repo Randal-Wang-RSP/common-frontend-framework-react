@@ -176,7 +176,7 @@ git add -A && git commit -m "feat(auth): add login form, tests, and docs"
 
 **Branch-first:** Always create a feature branch before writing any code — never commit directly to `main` or `development`.
 
-**Commit/PR review:** Before executing `git commit` or creating a PR, display the proposed message in the response text, then call `vscode_askQuestions` with confirm/edit/cancel options. Never execute without tool-based confirmation.
+**Commit/PR review:** Before executing `git commit` or creating a PR, display the proposed message in the response text, then call `vscode_askQuestions` with confirm/edit/cancel options. Never execute without tool-based confirmation. Use single-select for yes/no confirmations; use multi-select when the user needs to choose multiple items (e.g., files to stage, issues to fix).
 
 **Iterative workflow:** If new changes arise after a commit, re-enter the workflow from the appropriate step — assess, stage, show message, commit. Never skip steps.
 

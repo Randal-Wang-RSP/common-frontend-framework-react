@@ -147,3 +147,4 @@ Examples:
 - Named exports only — no `export default` anywhere
 - No `any` type — use proper typing
 - Do not import `zustand` or `axios` directly — use `@/shared/store` and `@/shared/api` wrappers
+- **MCP tool string params:** When calling MCP tools that accept markdown text (e.g., PR body, issue comment), use actual multi-line strings with real newlines — never `\n` escape sequences. Escaped newlines are stored literally and break markdown rendering.
