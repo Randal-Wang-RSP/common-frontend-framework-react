@@ -452,10 +452,10 @@ Do not skip steps or batch leftover changes silently. Each round of changes foll
 
 ### MCP Tool Pitfalls
 
-**PR body formatting:** When calling `mcp_github_create_pull_request`, the `body` parameter MUST use actual multi-line strings (real newlines), NOT `\n` escape sequences. Escaped newlines are stored literally and break markdown rendering on GitHub.
+**PR body formatting:** When calling any MCP tool that creates or updates a Pull Request (e.g., `mcp_github_create_pull_request`, `mcp_bitbucket_*`, or similar), the `body` / `description` parameter MUST use actual multi-line strings (real newlines), NOT `\n` escape sequences. Escaped newlines are stored literally and break markdown rendering on the hosting platform.
 
 ```
-# ❌ Escape sequences — renders as one long line on GitHub
+# ❌ Escape sequences — renders as one long line
 body: "## Summary\n\nSome text\n\n## Changes\n- item"
 
 # ✅ Real newlines — renders correctly as markdown
@@ -467,7 +467,7 @@ Some text
 - item"
 ```
 
-If a PR body is found to be malformatted, use `mcp_github_update_pull_request` to overwrite it with properly formatted text.
+If a PR description is found to be malformatted, use the corresponding update tool (e.g., `mcp_github_update_pull_request`) to overwrite it with properly formatted text.
 
 ---
 
