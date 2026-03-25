@@ -141,3 +141,6 @@ Examples:
 - FSD boundaries are enforced by `eslint-plugin-boundaries` — violations block commits
 - Do not import across same-layer slice boundaries
 - Keep shared layer free of business domain logic
+- Named exports only — no `export default` anywhere
+- No `any` type — use proper typing
+- Do not import `zustand` or `axios` directly — use `@/shared/store` and `@/shared/api` wrappers

@@ -102,6 +102,20 @@ shared/
 
 `shared` has **zero business domain knowledge** — no user, order, or other domain concepts.
 
+## Never Do
+
+```ts
+// ❌ Default export
+export default function UserCard() { ... }
+
+// ❌ any type
+const data: any = response.data
+
+// ❌ Import Zustand or Axios directly — use shared wrappers
+import { create } from "zustand"     // use @/shared/store
+import axios from "axios"            // use @/shared/api
+```
+
 ## Test Co-location
 
 Tests live next to the source file they test, named `*.test.ts` or `*.test.tsx`.

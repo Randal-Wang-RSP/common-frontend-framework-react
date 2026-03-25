@@ -450,6 +450,25 @@ Do not skip steps or batch leftover changes silently. Each round of changes foll
 
 **MANDATORY:** Before ending a session or yielding control, the agent MUST call the `vscode_askQuestions` tool to ask the user about the next action. Derive context-appropriate options from the current state and always include a "pause/stop" option.
 
+### MCP Tool Pitfalls
+
+**PR body formatting:** When calling any MCP tool that creates or updates a Pull Request (e.g., `mcp_github_create_pull_request`, `mcp_bitbucket_*`, or similar), the `body` / `description` parameter MUST use actual multi-line strings (real newlines), NOT `\n` escape sequences. Escaped newlines are stored literally and break markdown rendering on the hosting platform.
+
+```
+# ❌ Escape sequences — renders as one long line
+body: "## Summary\n\nSome text\n\n## Changes\n- item"
+
+# ✅ Real newlines — renders correctly as markdown
+body: "## Summary
+
+Some text
+
+## Changes
+- item"
+```
+
+If a PR description is found to be malformatted, use the corresponding update tool (e.g., `mcp_github_update_pull_request`) to overwrite it with properly formatted text.
+
 ---
 
 ## Quick Reference
