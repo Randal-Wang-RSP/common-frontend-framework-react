@@ -6,6 +6,11 @@ React template using **Feature-Sliced Design (FSD)** architecture, TypeScript st
 
 **Tech stack:** React 18 · Vite · TypeScript · CSS Modules · Ant Design · Zustand · TanStack Query · React Router v7 · Vitest
 
+**Repository:**
+- **Hosting:** Bitbucket
+- **CI/CD:** Jenkins
+- **Code quality:** SonarQube
+
 > Architecture deep-dive: [`docs/architecture.md`](../docs/architecture.md)
 > Naming & import conventions: [`docs/conventions.md`](../docs/conventions.md)
 > Layer-specific guides: [`docs/layers/`](../docs/layers/)
@@ -156,8 +161,6 @@ Types: `feat | fix | docs | style | refactor | test | chore | perf | revert`
 **Protected branches:** `main` and `development` — no direct push, PR + 1 approval required.
 
 **Versioning:** Semantic Versioning `v<MAJOR>.<MINOR>.<PATCH>` — tags prefixed with `v`.
-
-**Repository:** Bitbucket · CI/CD: Jenkins · Code quality: SonarQube
 
 ---
 
