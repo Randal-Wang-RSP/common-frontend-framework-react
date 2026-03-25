@@ -1,5 +1,8 @@
 # AGENTS.md — Coding Guidelines for AI Agents
 
+**Generated:** 2026-03-25
+**Mode:** init-deep --max-depth=2 (update)
+
 ## Quick Commands
 
 ```bash
@@ -131,9 +134,9 @@ Examples:
 
 - **Language:** Thinking and response text follow the user's language. Code, comments, documentation, commit messages, and PR content are **always in English**.
 - **Branch-first:** Always create a feature branch before writing any code — never commit directly to `main` or `development`.
-- **Commit/PR review:** Before executing `git commit` or creating a PR, display the proposed message in the response text, then call `vscode_askQuestions` with confirm/edit/cancel options. Never execute without tool-based confirmation.
+- **Commit/PR review:** Before executing `git commit` or creating a PR, display the proposed message in the response text, then ask the user for confirmation using the environment's question/ask tool (e.g., `vscode_askQuestions` in VS Code, `question` in opencode) with confirm/edit/cancel options. Never execute without tool-based confirmation. Use single-select when the user must choose exactly one option (e.g., confirm/edit/cancel or yes/no); use multi-select (`multiple: true` where supported) when the user needs to choose multiple items (e.g., files to stage, issues to fix).
 - **Iterative workflow:** If new changes arise after a commit, re-enter the workflow from the appropriate step — assess, stage, show message, commit. Never skip steps.
-- **Session end gate:** After completing any task or yielding control, **always** call `vscode_askQuestions` to ask the user about the next action. Include context-appropriate options and a "pause/stop" choice. This applies after every commit, push, PR creation, or code change — not only at session end.
+- **Session end gate:** After completing any task or yielding control, **always** ask the user about the next action via the environment's question/ask tool. Include context-appropriate options and a "pause/stop" choice. This applies after every commit, push, PR creation, or code change — not only at session end.
 
 ## Important Constraints
 
@@ -144,3 +147,4 @@ Examples:
 - Named exports only — no `export default` anywhere
 - No `any` type — use proper typing
 - Do not import `zustand` or `axios` directly — use `@/shared/store` and `@/shared/api` wrappers
+- **MCP tool string params:** When calling MCP tools that accept markdown text (e.g., PR body, issue comment), use actual multi-line strings with real newlines — never `\n` escape sequences. Escaped newlines are stored literally and break markdown rendering.

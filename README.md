@@ -2,16 +2,17 @@
 
 A React project template based on Feature-Sliced Design (FSD). Clone this repo, or use the one-liner below to let an AI agent scaffold a new project from scratch.
 
-## One-Liner Initialization
+## Quick Start (AI-Powered)
 
-Paste this instruction into any AI coding assistant (GitHub Copilot, Claude Code, etc.) to initialize a new project from scratch:
+Paste the following into any AI coding assistant (GitHub Copilot, Claude Code, Cursor, etc.) to scaffold a new project from scratch:
 
 ```
-Initialize a new React FSD project by following the instructions at:
-https://raw.githubusercontent.com/<your-username>/common-frontend-framework-react/main/docs/installation.md
-```
+Create a new React FSD project by following the instructions here:
+https://raw.githubusercontent.com/Randal-Wang-RSP/common-frontend-framework-react/refs/heads/main/docs/installation.md
 
-> Replace `<your-username>` with your GitHub username after pushing this repo.
+Then configure AI agent files by following the instructions here:
+https://raw.githubusercontent.com/Randal-Wang-RSP/common-frontend-framework-react/refs/heads/main/docs/installation-ai-config.md
+```
 
 ## Tech Stack
 
