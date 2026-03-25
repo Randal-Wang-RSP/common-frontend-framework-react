@@ -94,25 +94,9 @@ export type { UserId } from "../model"
 import type { UserId } from "@/entities/user/@x/order"
 ```
 
-**Named exports only:**
+**Named exports only** — no `export default` anywhere in the project.
 
-```ts
-// ✅
-export function UserCard({ user }: UserCardProps): JSX.Element { ... }
-
-// ❌
-export default function UserCard() { ... }
-```
-
-**Explicit return types on exported functions:**
-
-```ts
-// ✅
-export function formatDate(date: Date): string { ... }
-
-// ❌
-export function formatDate(date: Date) { ... }
-```
+**Explicit return types** on all exported functions.
 
 **Import order:**
 
@@ -153,13 +137,9 @@ Types: `feat | fix | docs | style | refactor | test | chore | perf | revert`
 > Full reference: [`.github/skills/git-workflow/SKILL.md`](skills/git-workflow/SKILL.md)
 
 **Branching model:** Git Flow — `main` (production) + `development` (integration) + short-lived feature/fix/release/hotfix branches.
-
 **Branch naming:** `<type>/<scope>-<short-description>` (e.g., `feat/auth-jwt-refresh`, `fix/cart-duplicate-items`)
-
 **Merge strategy:** Squash Merge for features → `development`; Merge Commit for releases/hotfixes → `main`.
-
 **Protected branches:** `main` and `development` — no direct push, PR + 1 approval required.
-
 **Versioning:** Semantic Versioning `v<MAJOR>.<MINOR>.<PATCH>` — tags prefixed with `v`.
 
 ---
