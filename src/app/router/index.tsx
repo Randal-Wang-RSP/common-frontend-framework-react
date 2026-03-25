@@ -1,13 +1,13 @@
-import { BrowserRouter, Routes } from "react-router"
+import type { ReactElement } from "react"
+import { BrowserRouter, Route, Routes } from "react-router"
 
-export function AppRouter() {
+import { WelcomePage } from "@/pages/welcome"
+
+export function AppRouter(): ReactElement {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Register page routes here. Example:
-            import { HomePage } from "@/pages/home"
-            <Route path="/" element={<HomePage />} />
-        */}
+        <Route path="/" element={<WelcomePage />} />
       </Routes>
     </BrowserRouter>
   )
