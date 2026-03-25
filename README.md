@@ -1,6 +1,6 @@
 # common-frontend-framework-react
 
-A React project template based on Feature-Sliced Design (FSD). Clone this repo, or use the one-liner below to let an AI agent scaffold a new project from scratch.
+A React project template based on Feature-Sliced Design (FSD). Clone this repo, or use the instructions below to let an AI agent scaffold a new project from scratch.
 
 ## Quick Start (AI-Powered)
 

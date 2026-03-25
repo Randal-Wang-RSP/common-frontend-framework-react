@@ -1,6 +1,6 @@
 # Documentation Guide
 
-**Purpose:** Repository documentation for FSD React template — architecture, conventions, installation, and AI configuration.
+**Purpose:** AI/agent instructions for working with the documentation in `docs/` — how to navigate architecture, conventions, installation, and AI configuration. For global repository rules, see the root [`AGENTS.md`](../AGENTS.md).
 
 ## Structure
 
