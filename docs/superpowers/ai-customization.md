@@ -35,7 +35,7 @@ Loaded into every Copilot request regardless of mode (Ask / Plan / Agent). Becau
 - FSD layer hierarchy and import direction
 - The most critical `❌` violations (Never Do)
 - Core code patterns with `✅/❌` examples
-- Brief workflow pointers (Workflow section)
+- Agent behavioural rules (Agent Rules section)
 
 **What does NOT belong here:**
 - Detailed per-layer rules → Tier 2
@@ -160,17 +160,17 @@ Copilot (inline completion + Chat) is fundamentally **pattern-matching driven**,
 
 | Mode | Primary benefit from system prompt | Secondary |
 |------|------------------------------------|-----------|
-| **Agent** | Never Do constraints (prevent wrong file writes) | Workflow pointers |
-| **Plan** | Workflow section (shapes planning quality) | Context / Architecture |
+| **Agent** | Never Do constraints (prevent wrong file writes) | Agent Rules |
+| **Plan** | Agent Rules (shapes planning quality) | Context / Architecture |
 | **Ask** | Context and Architecture (answers questions correctly) | Constraints |
 
 Since Copilot processes the file top-to-bottom, the recommended section order is:
 
 ```
-Context + Architecture   ← Ask needs this; foundation for all modes
-Never Do                 ← Agent priority; high weight when violations block commits  
+Context                  ← Ask needs this; foundation for all modes
+Never Do                 ← Agent priority; high weight when violations block commits
 Patterns (✅/❌)         ← Agent code generation quality
-Workflow                 ← Agent + Plan; comes last, not needed on every request
+Agent Rules              ← Agent behavioural control; last, not needed on every request
 ```
 
 ---
@@ -227,3 +227,118 @@ Use CLEAR as a review checklist after drafting any tier file:
 | **Reflective** | Instructions should reflect real violations, not hypothetical ones | Is this rule based on an actual mistake that happened, or a precaution that was never tested? |
 
 The four-tier architecture is itself an expression of the Adaptive principle: content is delivered only when and where it is relevant, rather than injected globally at all times.
+
+---
+
+## System Prompt Standard Template
+
+Use this template when creating `copilot-instructions.md` for a new project. The four sections map to the effective Five-Element subset (Context → Constraints → Examples) plus Agent Rules for behavioural control.
+
+### Template Skeleton
+
+````markdown
+# GitHub Copilot — Workspace Instructions
+
+## Context
+
+<Project type> using **<architecture>**, <language mode>.
+
+**Tech stack:** <list core dependencies separated by · >
+
+**Repository:**
+- **Hosting:** <platform>
+- **CI/CD:** <tool>
+- **Code quality:** <tool>
+
+<Architecture overview — layer hierarchy, import direction, slice structure>
+
+<Git workflow summary — branching model, merge strategy, versioning>
+
+> <Reference links to detailed docs, skills, and prompts>
+
+---
+
+## Never Do
+
+```<lang>
+// ❌ <violation description>
+<code example>
+
+// ❌ <violation description>
+<code example>
+```
+
+---
+
+## Patterns
+
+**<Pattern name>:**
+
+```<lang>
+// ✅
+<correct code>
+
+// ❌
+<incorrect code>
+```
+
+**<Convention>:** <one-line description>
+
+---
+
+## Agent Rules
+
+**<Rule name>:** <one-sentence rule description>
+````
+
+### Section Budgets
+
+| Section | Target Lines | Content Type |
+|---------|-------------|--------------|
+| Context | 40–60 | Project facts, architecture, workflow, references |
+| Never Do | 15–25 | ❌ code block — violations only, no prose needed |
+| Patterns | 30–50 | ✅/❌ pairs + one-liner conventions |
+| Agent Rules | 5–15 | Behavioural control for AI agents |
+| **Total** | **≤ 200** | |
+
+### CLEAR Quality Checklist
+
+Apply after drafting each section:
+
+| Check | Question |
+|-------|----------|
+| **C**oncise | Can half the words be removed without losing constraint effect? |
+| **L**ogical | Is the most critical ❌ near the top, not buried at the end? |
+| **E**xplicit | Does every rule have a concrete ✅/❌ code example? |
+| **A**daptive | Is the rule scoped correctly — global (Tier 1) vs layer-specific (Tier 2)? |
+| **R**eflective | Is this rule based on an actual mistake, not a hypothetical precaution? |
+
+### Content Placement Decision Tree
+
+```
+Is it project-wide context, a hard constraint, or a core pattern?
+  → Yes → copilot-instructions.md (Tier 1, ≤ 200 lines)
+  → No ↓
+Does it only apply when editing a specific layer or file type?
+  → Yes → .instructions.md with applyTo (Tier 2)
+  → No ↓
+Is it a multi-step coordinated workflow?
+  → Yes → .prompt.md (Tier 3)
+  → No ↓
+Is it deep domain knowledge for a specific library or pattern?
+  → Yes → SKILL.md (Tier 4)
+```
+
+### Companion Files
+
+`copilot-instructions.md` is the primary system prompt, but a complete AI customization also includes:
+
+| File | Purpose | Audience |
+|------|---------|----------|
+| `CLAUDE.md` | Claude Code / Codex instructions | Claude, Codex |
+| `AGENTS.md` | Generic agent instructions | All AI tools |
+| `.instructions.md` | Layer-scoped rules | Copilot (auto-injected by path) |
+| `.prompt.md` | Task workflows | Copilot (manual invocation) |
+| `SKILL.md` | Deep domain knowledge | Copilot (on-demand by description match) |
+
+Keep `CLAUDE.md` and `AGENTS.md` aligned with `copilot-instructions.md` in content, though the format may differ.

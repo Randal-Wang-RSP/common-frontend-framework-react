@@ -89,6 +89,8 @@ Each slice contains: `ui/`, `model/`, `api/`, `lib/`, `config/` segments + `inde
 
 ## Git Workflow
 
+> Full reference: [`.github/skills/git-workflow/SKILL.md`](.github/skills/git-workflow/SKILL.md)
+
 **Conventional Commits:**
 
 ```
@@ -105,6 +107,16 @@ Examples:
 
 **Pre-commit hooks run automatically via Husky.**
 
+**Atomic commits:** split changes by type — code, tests, docs, config in separate commits. Stage selectively (`git add <files>`), not `git add -A`.
+
+**Branching:** Git Flow — `main` (production) + `development` (integration) + short-lived `feat/`, `fix/`, `hotfix/`, `release/` branches. Branch naming: `<type>/<scope>-<short-description>`.
+
+**Merge strategy:** Squash Merge for features → `development`; Merge Commit for releases/hotfixes → `main`.
+
+**Protected branches:** `main` and `development` — no direct push, PR + 1 approval required.
+
+**Repository:** Bitbucket · CI/CD: Jenkins · Code quality: SonarQube
+
 ## Key Dependencies
 
 - React 18 + Vite + TypeScript (strict)
@@ -115,9 +127,20 @@ Examples:
 - CSS Modules for styling
 - Vitest + jsdom for testing
 
+## Agent Rules
+
+- **Language:** Thinking and response text follow the user's language. Code, comments, documentation, commit messages, and PR content are **always in English**.
+- **Branch-first:** Always create a feature branch before writing any code — never commit directly to `main` or `development`.
+- **Commit/PR review:** Before executing `git commit` or creating a PR, display the proposed message in the response text, then call `vscode_askQuestions` with confirm/edit/cancel options. Never execute without tool-based confirmation.
+- **Iterative workflow:** If new changes arise after a commit, re-enter the workflow from the appropriate step — assess, stage, show message, commit. Never skip steps.
+- **Session end gate:** After completing any task or yielding control, **always** call `vscode_askQuestions` to ask the user about the next action. Include context-appropriate options and a "pause/stop" choice. This applies after every commit, push, PR creation, or code change — not only at session end.
+
 ## Important Constraints
 
 - Client env vars must be prefixed with `VITE_`
 - FSD boundaries are enforced by `eslint-plugin-boundaries` — violations block commits
 - Do not import across same-layer slice boundaries
 - Keep shared layer free of business domain logic
+- Named exports only — no `export default` anywhere
+- No `any` type — use proper typing
+- Do not import `zustand` or `axios` directly — use `@/shared/store` and `@/shared/api` wrappers

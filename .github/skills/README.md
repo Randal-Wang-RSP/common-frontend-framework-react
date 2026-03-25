@@ -13,6 +13,8 @@ Copilot reads each skill's `description` frontmatter and loads the full content 
 | Skill | Triggers when… |
 |-------|---------------|
 | [`zustand-patterns`](./zustand-patterns/SKILL.md) | Writing or reviewing Zustand stores |
+| [`git-workflow`](./git-workflow/SKILL.md) | Performing Git operations: branching, committing, PRs, merging, releasing, hotfixing. Supports GitHub and Bitbucket with platform-specific workflows |
+| [`requesting-code-review`](./requesting-code-review/SKILL.md) | Completing tasks, implementing major features, or before merging to verify work meets requirements |
 
 ## Adding a New Skill
 
