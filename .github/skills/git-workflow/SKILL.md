@@ -416,6 +416,36 @@ git commit -m "docs(features): add auth feature example"
 - Amending published commits (`git commit --amend` after push)
 - Tagging releases
 
+### Commit/PR Message Review
+
+Before executing `git commit` or creating a Pull Request, the agent MUST display the proposed message to the user for review:
+
+1. **Show the message** in the response text — commit message or PR title/description
+2. **Wait for confirmation** — use `vscode_askQuestions` with options like "confirm", "edit message", "cancel"
+3. **Only execute** after user approval
+
+```
+# ✅ Agent shows message first
+"I will commit with the following message:
+  feat(auth): add login form with validation
+Confirm?"
+
+# ❌ Agent commits without showing message
+git commit -m "feat(auth): add login form with validation"  ← user never saw this
+```
+
+### Iterative Workflow
+
+If new changes arise after a commit (e.g., fixing a review comment, addressing lint errors, or adding missed files), the agent MUST re-enter the workflow from the appropriate step:
+
+1. **Assess** — what changed and why
+2. **Stage selectively** — only the new/modified files
+3. **Show commit message** — for user review (per the rule above)
+4. **Commit** — after approval
+5. **Push** — if previous commits were already pushed
+
+Do not skip steps or batch leftover changes silently. Each round of changes follows the same discipline.
+
 ### Session End Gate
 
 **MANDATORY:** Before ending a session or yielding control, the agent MUST call the `vscode_askQuestions` tool to ask the user about the next action. Derive context-appropriate options from the current state and always include a "pause/stop" option.
