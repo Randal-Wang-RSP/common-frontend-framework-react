@@ -89,6 +89,8 @@ Each slice contains: `ui/`, `model/`, `api/`, `lib/`, `config/` segments + `inde
 
 ## Git Workflow
 
+> Full reference: [`.github/skills/git-workflow/SKILL.md`](.github/skills/git-workflow/SKILL.md)
+
 **Conventional Commits:**
 
 ```
@@ -105,6 +107,16 @@ Examples:
 
 **Pre-commit hooks run automatically via Husky.**
 
+**Atomic commits:** split changes by type — code, tests, docs, config in separate commits. Stage selectively (`git add <files>`), not `git add -A`.
+
+**Branching:** Git Flow — `main` (production) + `development` (integration) + short-lived `feat/`, `fix/`, `hotfix/`, `release/` branches. Branch naming: `<type>/<scope>-<short-description>`.
+
+**Merge strategy:** Squash Merge for features → `development`; Merge Commit for releases/hotfixes → `main`.
+
+**Protected branches:** `main` and `development` — no direct push, PR + 1 approval required.
+
+**Repository:** Bitbucket · CI/CD: Jenkins · Code quality: SonarQube
+
 ## Key Dependencies
 
 - React 18 + Vite + TypeScript (strict)
@@ -114,6 +126,12 @@ Examples:
 - Ant Design for UI components
 - CSS Modules for styling
 - Vitest + jsdom for testing
+
+## Agent Rules
+
+- **Language:** Thinking and response text follow the user's language. Code, comments, documentation, commit messages, and PR content are **always in English**.
+- **Branch-first:** Always create a feature branch before writing any code — never commit directly to `main` or `development`.
+- **Session end gate:** Before ending a session or yielding control, **always** call `vscode_askQuestions` to ask the user about the next action. Include context-appropriate options and a "pause/stop" choice.
 
 ## Important Constraints
 
