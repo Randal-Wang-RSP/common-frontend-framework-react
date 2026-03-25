@@ -2,7 +2,8 @@
 description: >
   Use when completing tasks, implementing major features, or before merging
   to verify work meets requirements. Covers code review workflow, severity
-  categorization, and review template.
+  categorization, review template, FSD architecture compliance, and
+  project-specific coding standards.
 ---
 
 # Requesting Code Review
@@ -75,6 +76,19 @@ HEAD_SHA=$(git rev-parse HEAD)
 You: [Fix progress indicators]
 [Continue to Task 3]
 ```
+
+## FSD-Specific Checks
+
+In addition to general code quality, reviews **must** verify FSD compliance:
+
+- **Layer direction:** imports flow downward only (`app → pages → widgets → features → entities → shared`)
+- **Slice isolation:** no same-layer cross-slice imports
+- **Barrel imports:** external access through `index.ts` only — no deep imports
+- **`@/` alias:** all cross-layer imports use `@/`, never relative `../../`
+- **`@x` pattern:** cross-entity references use `@x` re-exports
+- **Shared purity:** `shared` layer has zero business domain logic
+- **No `export default`**, no `any`, no direct `zustand`/`axios` imports
+- **ESLint boundaries:** `eslint-plugin-boundaries` passes with no violations
 
 ## Integration with Workflows
 
