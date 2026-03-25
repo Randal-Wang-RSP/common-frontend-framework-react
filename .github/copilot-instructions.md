@@ -137,7 +137,37 @@ import styles from "./LoginForm.module.css"
 **Commits:** `feat(auth): add JWT refresh logic` · `fix(cart): prevent duplicate items`  
 Types: `feat | fix | docs | style | refactor | test | chore | perf | revert`
 
+**Atomic commits:** split changes by type — code, tests, docs, config in separate commits. Stage selectively (`git add <files>`), not `git add -A`.
+
 **Env vars:** prefix client-side vars with `VITE_`
+
+---
+
+## Git Workflow
+
+> Full reference: [`.github/skills/git-workflow/SKILL.md`](skills/git-workflow/SKILL.md)
+
+**Branching model:** Git Flow — `main` (production) + `development` (integration) + short-lived feature/fix/release/hotfix branches.
+
+**Branch naming:** `<type>/<scope>-<short-description>` (e.g., `feat/auth-jwt-refresh`, `fix/cart-duplicate-items`)
+
+**Merge strategy:** Squash Merge for features → `development`; Merge Commit for releases/hotfixes → `main`.
+
+**Protected branches:** `main` and `development` — no direct push, PR + 1 approval required.
+
+**Versioning:** Semantic Versioning `v<MAJOR>.<MINOR>.<PATCH>` — tags prefixed with `v`.
+
+**Repository:** Bitbucket · CI/CD: Jenkins · Code quality: SonarQube
+
+---
+
+## Agent Rules
+
+**Language:** Thinking and response text follow the user's language. Code, comments, documentation, commit messages, and PR content are **always in English**.
+
+**Branch-first:** Always create a feature branch before writing any code — never commit directly to `main` or `development`.
+
+**Session end gate:** Before ending a session or yielding control, **always** call `vscode_askQuestions` to ask the user about the next action. Include context-appropriate options and a "pause/stop" choice.
 
 ---
 
