@@ -82,6 +82,7 @@ Replace the `scripts` section in `package.json` with:
   "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
   "lint:fix": "eslint src --ext ts,tsx --fix",
   "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"docs/**/*.md\" \"*.md\"",
+  "build:ai-config": "node scripts/build-ai-config-doc.mjs",
   "prepare": "husky"
 }
 ```
@@ -213,6 +214,7 @@ module.exports = {
       },
     },
     "boundaries/elements": [
+      // mode: "folder" groups all files under a folder as one element — required for slice-level grouping
       { type: "app", pattern: "src/app/**", mode: "folder" },
       { type: "pages", pattern: "src/pages/*", mode: "folder", capture: ["slice"] },
       { type: "widgets", pattern: "src/widgets/*", mode: "folder", capture: ["slice"] },
@@ -223,6 +225,8 @@ module.exports = {
     "boundaries/ignore": ["src/main.tsx"],
   },
   rules: {
+    // FSD layer direction + same-layer slice isolation
+    // Capture syntax: ${from.slice} references the slice captured from the importing file's path
     "boundaries/element-types": [
       "error",
       {
@@ -230,6 +234,7 @@ module.exports = {
         rules: [
           { from: ["app"], allow: ["pages", "widgets", "features", "entities", "shared"] },
           {
+            // pages can import from other slices in pages (only same slice), and lower layers
             from: [["pages", { slice: "*" }]],
             allow: [
               ["pages", { slice: "${from.slice}" }],
@@ -240,14 +245,17 @@ module.exports = {
             ],
           },
           {
+            // widgets can import from other slices in widgets (only same slice), and lower layers
             from: [["widgets", { slice: "*" }]],
             allow: [["widgets", { slice: "${from.slice}" }], "features", "entities", "shared"],
           },
           {
+            // features can import from other slices in features (only same slice), and lower layers
             from: [["features", { slice: "*" }]],
             allow: [["features", { slice: "${from.slice}" }], "entities", "shared"],
           },
           {
+            // entities can import from other slices in entities (only same slice), and shared
             from: [["entities", { slice: "*" }]],
             allow: [["entities", { slice: "${from.slice}" }], "shared"],
           },
@@ -256,23 +264,10 @@ module.exports = {
       },
     ],
     "boundaries/no-unknown": ["error"],
-    "no-restricted-imports": [
-      "error",
-      {
-        patterns: [
-          {
-            group: ["../../*"],
-            message: "Cross-layer relative imports are forbidden. Use @/ alias instead.",
-          },
-        ],
-      },
-    ],
+    "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
     "@typescript-eslint/no-explicit-any": "warn",
-    "@typescript-eslint/explicit-function-return-type": [
-      "warn",
-      { allowExpressions: true, allowTypedFunctionExpressions: true },
-    ],
   },
+  ignorePatterns: ["dist/", "node_modules/", "coverage/", "*.cjs"],
 }
 ```
 
@@ -301,6 +296,7 @@ node_modules/
 dist/
 coverage/
 docs/superpowers/
+scripts/
 *.lock
 ```
 
@@ -483,16 +479,16 @@ export function Providers({ children }: ProvidersProps) {
 ### `src/app/router/index.tsx`
 
 ```tsx
-import { BrowserRouter, Routes } from "react-router"
+import type { ReactElement } from "react"
+import { BrowserRouter, Route, Routes } from "react-router"
 
-export function AppRouter() {
+import { WelcomePage } from "@/pages/welcome"
+
+export function AppRouter(): ReactElement {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Register page routes here. Example:
-            import { HomePage } from "@/pages/home"
-            <Route path="/" element={<HomePage />} />
-        */}
+        <Route path="/" element={<WelcomePage />} />
       </Routes>
     </BrowserRouter>
   )
@@ -526,6 +522,52 @@ body {
 
 #root {
   min-height: 100vh;
+}
+```
+
+### `src/pages/welcome/index.ts`
+
+```ts
+export { WelcomePage } from "./ui"
+```
+
+### `src/pages/welcome/ui/index.ts`
+
+```ts
+export { WelcomePage } from "./WelcomePage"
+```
+
+### `src/pages/welcome/ui/WelcomePage.tsx`
+
+```tsx
+import type { ReactElement } from "react"
+
+import styles from "./WelcomePage.module.css"
+
+export function WelcomePage(): ReactElement {
+  return (
+    <div className={styles.container}>
+      <h1 className={styles.title}>Welcome</h1>
+    </div>
+  )
+}
+```
+
+### `src/pages/welcome/ui/WelcomePage.module.css`
+
+```css
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.title {
+  font-size: 3rem;
+  font-weight: 300;
+  color: #333;
+  margin: 0;
 }
 ```
 

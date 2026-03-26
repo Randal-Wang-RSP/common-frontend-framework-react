@@ -32,19 +32,19 @@ development ──┴──●──●──●────┴──●──�
 
 ### Long-lived Branches
 
-| Branch | Purpose | Direct push allowed |
-|--------|---------|---------------------|
-| `main` | Production-ready code. Every commit is a release. | **No** — protected |
-| `development` | Integration branch. All feature work merges here first. | **No** — protected |
+| Branch        | Purpose                                                 | Direct push allowed |
+| ------------- | ------------------------------------------------------- | ------------------- |
+| `main`        | Production-ready code. Every commit is a release.       | **No** — protected  |
+| `development` | Integration branch. All feature work merges here first. | **No** — protected  |
 
 ### Short-lived Branches
 
-| Branch pattern | Created from | Merges back to | Purpose |
-|----------------|-------------|----------------|---------|
-| `feat/<scope>-<desc>` | `development` | `development` | New features |
-| `fix/<scope>-<desc>` | `development` | `development` | Bug fixes (non-production) |
-| `hotfix/<version>-<desc>` | `main` | `main` + `development` | Critical production fixes |
-| `release/<version>` | `development` | `main` + `development` | Release preparation |
+| Branch pattern            | Created from  | Merges back to         | Purpose                    |
+| ------------------------- | ------------- | ---------------------- | -------------------------- |
+| `feat/<scope>-<desc>`     | `development` | `development`          | New features               |
+| `fix/<scope>-<desc>`      | `development` | `development`          | Bug fixes (non-production) |
+| `hotfix/<version>-<desc>` | `main`        | `main` + `development` | Critical production fixes  |
+| `release/<version>`       | `development` | `main` + `development` | Release preparation        |
 
 ---
 
@@ -136,14 +136,14 @@ git commit -m "feat(auth): add login form, tests, and docs"
 
 **Splitting guidelines:**
 
-| Change type | Commit separately | Example scope |
-|-------------|------------------|---------------|
-| Feature code | Yes | `feat(auth): add login form` |
-| Tests for that feature | Yes | `test(auth): add login form tests` |
-| Documentation updates | Yes | `docs(auth): document login flow` |
-| Style/formatting fixes | Yes | `style(auth): fix import order` |
-| Refactoring | Yes | `refactor(shared): extract http error handler` |
-| Dependency updates | Yes | `chore(deps): upgrade react-router to v7` |
+| Change type            | Commit separately | Example scope                                  |
+| ---------------------- | ----------------- | ---------------------------------------------- |
+| Feature code           | Yes               | `feat(auth): add login form`                   |
+| Tests for that feature | Yes               | `test(auth): add login form tests`             |
+| Documentation updates  | Yes               | `docs(auth): document login flow`              |
+| Style/formatting fixes | Yes               | `style(auth): fix import order`                |
+| Refactoring            | Yes               | `refactor(shared): extract http error handler` |
+| Dependency updates     | Yes               | `chore(deps): upgrade react-router to v7`      |
 
 **When to combine:** Only combine changes that are inseparable — e.g., a type definition and the code that uses it in the same slice can share one commit if they are part of the same logical change.
 
@@ -213,13 +213,13 @@ Include before/after screenshots for UI changes.
 
 ## Merge Strategy
 
-| Scenario | Merge method | Reason |
-|----------|-------------|--------|
+| Scenario                    | Merge method     | Reason                                     |
+| --------------------------- | ---------------- | ------------------------------------------ |
 | Feature/fix → `development` | **Squash Merge** | Clean linear history on integration branch |
-| `release/*` → `main` | **Merge Commit** | Preserve release context in history |
-| `release/*` → `development` | **Merge Commit** | Sync release fixes back |
-| `hotfix/*` → `main` | **Merge Commit** | Preserve hotfix context |
-| `hotfix/*` → `development` | **Merge Commit** | Sync hotfix to development |
+| `release/*` → `main`        | **Merge Commit** | Preserve release context in history        |
+| `release/*` → `development` | **Merge Commit** | Sync release fixes back                    |
+| `hotfix/*` → `main`         | **Merge Commit** | Preserve hotfix context                    |
+| `hotfix/*` → `development`  | **Merge Commit** | Sync hotfix to development                 |
 
 ---
 
@@ -255,7 +255,13 @@ git checkout -b release/1.3.0
 
 ### 2. Prepare Release
 
-- Bump version numbers (package.json, etc.)
+- Bump version using `npm version`:
+  ```bash
+  npm version <version> --no-git-tag-version  # e.g., npm version 1.3.0 --no-git-tag-version
+  git add package.json package-lock.json
+  git commit -m "chore(release): bump version to 1.3.0"
+  ```
+  **CRITICAL:** Always use `npm version` instead of manually editing `package.json` — it automatically syncs `package-lock.json`. The `--no-git-tag-version` flag prevents auto-commit and auto-tag (we control those separately per Git Flow).
 - Final bug fixes and documentation updates only — no new features
 - Run full test suite: `npm run test:run`
 - Run lint: `npm run lint`
@@ -306,7 +312,7 @@ git checkout -b hotfix/1.2.1-payment-crash
 
 - Apply the minimal fix
 - Add regression test
-- Bump patch version
+- Bump patch version using `npm version <version> --no-git-tag-version`
 
 ### 3. Merge to `main`
 
@@ -341,11 +347,11 @@ Delete the hotfix branch after both merges are complete.
 
 Format: `v<MAJOR>.<MINOR>.<PATCH>`
 
-| Segment | Increment when… | Example |
-|---------|-----------------|---------|
-| MAJOR | Breaking changes to public API or behavior | `v2.0.0` |
-| MINOR | New features, backward-compatible | `v1.3.0` |
-| PATCH | Bug fixes, backward-compatible | `v1.2.1` |
+| Segment | Increment when…                            | Example  |
+| ------- | ------------------------------------------ | -------- |
+| MAJOR   | Breaking changes to public API or behavior | `v2.0.0` |
+| MINOR   | New features, backward-compatible          | `v1.3.0` |
+| PATCH   | Bug fixes, backward-compatible             | `v1.2.1` |
 
 **Tag format:** Always prefix with `v` — `v1.0.0`, `v1.2.1`, etc.
 
@@ -368,10 +374,10 @@ Hosting = Bitbucket → Read platforms/bitbucket.md (project scripts)
 2. Load **only** the corresponding platform file using `read_file`
 3. Follow the platform-specific workflow for PR creation and management
 
-| Platform | PR Creation | PR Comments | Authentication |
-|----------|------------|-------------|----------------|
-| GitHub | `mcp_github_create_pull_request` | `mcp_github_add_issue_comment` | MCP OAuth |
-| Bitbucket | `scripts/create-pr.js` | `scripts/add-pr-comment.js` | `BITBUCKET_EMAIL` + `BITBUCKET_TOKEN` |
+| Platform  | PR Creation                      | PR Comments                    | Authentication                        |
+| --------- | -------------------------------- | ------------------------------ | ------------------------------------- |
+| GitHub    | `mcp_github_create_pull_request` | `mcp_github_add_issue_comment` | MCP OAuth                             |
+| Bitbucket | `scripts/create-pr.js`           | `scripts/add-pr-comment.js`    | `BITBUCKET_EMAIL` + `BITBUCKET_TOKEN` |
 
 ### Commit Message Content Rules
 
@@ -381,14 +387,14 @@ Before generating any commit message, **always** read `.github/.copilot-commit-m
 
 Scripts are located at `.github/skills/git-workflow/scripts/`:
 
-| Script | Purpose | Input | Output |
-|--------|---------|-------|--------|
-| `parse-diff.js` | Analyze changes | `--staged` or `--files` | JSON: files, stats, summary |
-| `validate-message.js` | Validate format | stdin: plain text | JSON: valid, errors |
-| `format-commit.js` | Format & write | stdin: `{title, paragraphs}` | JSON: messageFilePath, valid |
-| `git-workflow.js` | Execute workflow | `--all --message-file <path> --push` | JSON: add/commit/push results |
-| `create-pr.js` | Create / update PR | `--target <branch> [--title] [--summary] [--description]` | JSON: success, url |
-| `add-pr-comment.js` | Add PR comments | `--pr-id <n> --comment <text>` | JSON: success, results |
+| Script                | Purpose            | Input                                                     | Output                        |
+| --------------------- | ------------------ | --------------------------------------------------------- | ----------------------------- |
+| `parse-diff.js`       | Analyze changes    | `--staged` or `--files`                                   | JSON: files, stats, summary   |
+| `validate-message.js` | Validate format    | stdin: plain text                                         | JSON: valid, errors           |
+| `format-commit.js`    | Format & write     | stdin: `{title, paragraphs}`                              | JSON: messageFilePath, valid  |
+| `git-workflow.js`     | Execute workflow   | `--all --message-file <path> --push`                      | JSON: add/commit/push results |
+| `create-pr.js`        | Create / update PR | `--target <branch> [--title] [--summary] [--description]` | JSON: success, url            |
+| `add-pr-comment.js`   | Add PR comments    | `--pr-id <n> --comment <text>`                            | JSON: success, results        |
 
 > Prefer using `--summary` with `create-pr.js` so the script can auto-generate the full description. You may also pass `--description` manually; the script will normalize literal `\n` / `\r` sequences to real newlines for cross-shell compatibility.
 

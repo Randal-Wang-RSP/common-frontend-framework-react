@@ -1,8 +1,5 @@
 # React FSD Framework — AI Configuration Guide
 
-<!-- AUTO-GENERATED from source files. Do not edit manually. -->
-<!-- Regenerate: npm run build:ai-config -->
-
 > This guide is a companion to [`installation.md`](installation.md).
 > It covers all AI agent and GitHub Copilot configuration files.
 > Follow every step in order. Create every file with the exact content shown.
@@ -32,6 +29,9 @@ These files provide coding guidelines for different AI tools.
 
 ````md
 # AGENTS.md — Coding Guidelines for AI Agents
+
+**Generated:** 2026-03-25
+**Mode:** init-deep --max-depth=2 (update)
 
 ## Quick Commands
 
@@ -164,9 +164,9 @@ Examples:
 
 - **Language:** Thinking and response text follow the user's language. Code, comments, documentation, commit messages, and PR content are **always in English**.
 - **Branch-first:** Always create a feature branch before writing any code — never commit directly to `main` or `development`.
-- **Commit/PR review:** Before executing `git commit` or creating a PR, display the proposed message in the response text, then call `vscode_askQuestions` with confirm/edit/cancel options. Never execute without tool-based confirmation.
+- **Commit/PR review:** Before executing `git commit` or creating a PR, display the proposed message in the response text, then ask the user for confirmation using the environment's question/ask tool (e.g., `vscode_askQuestions` in VS Code, `question` in opencode) with confirm/edit/cancel options. Never execute without tool-based confirmation. Use single-select when the user must choose exactly one option (e.g., confirm/edit/cancel or yes/no); use multi-select (`multiple: true` where supported) when the user needs to choose multiple items (e.g., files to stage, issues to fix).
 - **Iterative workflow:** If new changes arise after a commit, re-enter the workflow from the appropriate step — assess, stage, show message, commit. Never skip steps.
-- **Session end gate:** After completing any task or yielding control, **always** call `vscode_askQuestions` to ask the user about the next action. Include context-appropriate options and a "pause/stop" choice. This applies after every commit, push, PR creation, or code change — not only at session end.
+- **Session end gate:** After completing any task or yielding control, **always** ask the user about the next action via the environment's question/ask tool. Include context-appropriate options and a "pause/stop" choice. This applies after every commit, push, PR creation, or code change — not only at session end.
 
 ## Important Constraints
 
@@ -177,6 +177,7 @@ Examples:
 - Named exports only — no `export default` anywhere
 - No `any` type — use proper typing
 - Do not import `zustand` or `axios` directly — use `@/shared/store` and `@/shared/api` wrappers
+- **MCP tool string params:** When calling MCP tools that accept markdown text (e.g., PR body, issue comment), use actual multi-line strings with real newlines — never `\n` escape sequences. Escaped newlines are stored literally and break markdown rendering.
 ````
 
 ---
@@ -362,11 +363,11 @@ git add -A && git commit -m "feat(auth): add login form, tests, and docs"
 
 **Branch-first:** Always create a feature branch before writing any code — never commit directly to `main` or `development`.
 
-**Commit/PR review:** Before executing `git commit` or creating a PR, display the proposed message in the response text, then call `vscode_askQuestions` with confirm/edit/cancel options. Never execute without tool-based confirmation.
+**Commit/PR review:** Before executing `git commit` or creating a PR, display the proposed message in the response text, then ask the user for confirmation using the environment's question/ask tool (e.g., `vscode_askQuestions` in VS Code, `question` in opencode) with confirm/edit/cancel options. Never execute without tool-based confirmation. Use single-select when the user must choose exactly one option (e.g., confirm/edit/cancel or yes/no); use multi-select when the user needs to choose multiple items (e.g., files to stage, issues to fix).
 
 **Iterative workflow:** If new changes arise after a commit, re-enter the workflow from the appropriate step — assess, stage, show message, commit. Never skip steps.
 
-**Session end gate:** After completing any task or yielding control, **always** call `vscode_askQuestions` to ask the user about the next action. Include context-appropriate options and a "pause/stop" choice. This applies after every commit, push, PR creation, or code change — not only at session end.
+**Session end gate:** After completing any task or yielding control, **always** ask the user about the next action via the environment's question/ask tool. Include context-appropriate options and a "pause/stop" choice. This applies after every commit, push, PR creation, or code change — not only at session end.
 
 ## ESLint Enforcement
 
@@ -524,7 +525,7 @@ Types: `feat | fix | docs | style | refactor | test | chore | perf | revert`
 
 **Branch-first:** Always create a feature branch before writing any code — never commit directly to `main` or `development`.
 
-**Commit/PR review:** Before executing `git commit` or creating a PR, display the proposed message in the response text, then call `vscode_askQuestions` with confirm/edit/cancel options. Never execute without tool-based confirmation.
+**Commit/PR review:** Before executing `git commit` or creating a PR, display the proposed message in the response text, then call `vscode_askQuestions` with confirm/edit/cancel options. Never execute without tool-based confirmation. Use single-select when the user must choose exactly one option (e.g., confirm/edit/cancel or yes/no); use multi-select when the user needs to choose multiple items (e.g., files to stage, issues to fix).
 
 **Iterative workflow:** If new changes arise after a commit, re-enter the workflow from the appropriate step — assess, stage, show message, commit. Never skip steps.
 
@@ -2048,7 +2049,13 @@ git checkout -b release/1.3.0
 
 ### 2. Prepare Release
 
-- Bump version numbers (package.json, etc.)
+- Bump version using `npm version`:
+  ```bash
+  npm version <version> --no-git-tag-version  # e.g., npm version 1.3.0 --no-git-tag-version
+  git add package.json package-lock.json
+  git commit -m "chore(release): bump version to 1.3.0"
+  ```
+  **CRITICAL:** Always use `npm version` instead of manually editing `package.json` — it automatically syncs `package-lock.json`. The `--no-git-tag-version` flag prevents auto-commit and auto-tag (we control those separately per Git Flow).
 - Final bug fixes and documentation updates only — no new features
 - Run full test suite: `npm run test:run`
 - Run lint: `npm run lint`
@@ -2099,7 +2106,7 @@ git checkout -b hotfix/1.2.1-payment-crash
 
 - Apply the minimal fix
 - Add regression test
-- Bump patch version
+- Bump patch version using `npm version <version> --no-git-tag-version`
 
 ### 3. Merge to `main`
 
@@ -4910,7 +4917,8 @@ process.exit(failed === 0 ? 0 : 1)
 description: >
   Use when completing tasks, implementing major features, or before merging
   to verify work meets requirements. Covers code review workflow, severity
-  categorization, and review template.
+  categorization, review template, FSD architecture compliance, and
+  project-specific coding standards.
 ---
 
 # Requesting Code Review
@@ -4989,6 +4997,19 @@ You: [Fix progress indicators]
 [Continue to Task 3]
 ```
 
+## FSD-Specific Checks
+
+In addition to general code quality, reviews **must** verify FSD compliance:
+
+- **Layer direction:** imports flow downward only (`app → pages → widgets → features → entities → shared`)
+- **Slice isolation:** no same-layer cross-slice imports
+- **Barrel imports:** external access through `index.ts` only — no deep imports
+- **`@/` alias:** all cross-layer imports use `@/`, never relative `../../`
+- **`@x` pattern:** cross-entity references use `@x` re-exports
+- **Shared purity:** `shared` layer has zero business domain logic
+- **No `export default`**, no `any`, no direct `zustand`/`axios` imports
+- **ESLint boundaries:** `eslint-plugin-boundaries` passes with no violations
+
 ## Integration with Workflows
 
 **Agent-Driven Development:**
@@ -5066,14 +5087,25 @@ git diff {BASE_SHA}..{HEAD_SHA}
 
 - Clean separation of concerns?
 - Proper error handling?
-- Type safety (if applicable)?
+- Type safety — no `any`, explicit return types on exported functions?
 - DRY principle followed?
 - Edge cases handled?
+- Named exports only — no `export default`?
+- No direct imports of `zustand` or `axios` — use `@/shared/store` and `@/shared/api`?
+- Naming conventions: `PascalCase` components/types, `camelCase` functions/hooks, `kebab-case` files?
+- Import order: external packages → `@/` imports → relative imports?
 
-**Architecture:**
+**Architecture (FSD):**
 
+- Layer imports flow downward only (`app → pages → widgets → features → entities → shared`)?
+- No same-layer cross-slice imports?
+- Cross-layer imports use `@/` alias (no relative `../../` across slices)?
+- Cross-entity references use `@x` pattern?
+- All external access goes through `index.ts` barrel — no deep imports?
+- `shared` layer has zero business domain logic?
+- Slice structure follows convention (`ui/`, `model/`, `api/`, `lib/`, `config/`, `index.ts`)?
+- `eslint-plugin-boundaries` passes with no violations?
 - Sound design decisions?
-- Scalability considerations?
 - Performance implications?
 - Security concerns?
 
@@ -5081,8 +5113,8 @@ git diff {BASE_SHA}..{HEAD_SHA}
 
 - Tests actually test logic (not mocks)?
 - Edge cases covered?
-- Integration tests where needed?
-- All tests passing?
+- Tests co-located with source (`file.ts` → `file.test.ts`)?
+- All tests passing (`npm run test:run`)?
 
 **Requirements:**
 
@@ -5091,9 +5123,16 @@ git diff {BASE_SHA}..{HEAD_SHA}
 - No scope creep?
 - Breaking changes documented?
 
+**Commits:**
+
+- Conventional Commits format (`<type>(<scope>): <description>`)?
+- Atomic commits — code, tests, docs in separate commits?
+- Selective staging (`git add <files>`), not `git add -A`?
+
 **Production Readiness:**
 
-- Migration strategy (if schema changes)?
+- ESLint passes (`npm run lint`)?
+- TypeScript compiles (`npm run build`)?
 - Backward compatibility considered?
 - Documentation complete?
 - No obvious bugs?
