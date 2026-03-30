@@ -472,39 +472,45 @@ git commit -m "docs(features): add auth feature example"
 - Amending published commits (`git commit --amend` after push)
 - Tagging releases
 
-### Commit/PR Message Review
+### Commit/PR Message Review (Compressed Interaction Model)
 
-Before executing `git commit` or creating a Pull Request, the agent MUST display the proposed message to the user for review:
+The agent MUST show commit message AND PR details to the user before executing — but combines them into a **single confirmation** instead of separate gates.
 
-1. **Show the message** in the response text — commit message or PR title/description
-2. **Wait for confirmation** — use `vscode_askQuestions` with options like "confirm", "edit message", "cancel"
-3. **Only execute** after user approval
+**Principle:** User reviews everything upfront in ONE interaction, then the pipeline executes automatically.
+
+1. **Prepare everything first** — generate commit message, validate it, prepare PR title/summary
+2. **Show combined preview** — commit message + PR description in one view
+3. **Single confirmation** — user approves/edits/cancels in one interaction
+4. **Execute pipeline** — commit → push → PR creation runs automatically after approval
 
 ```
-# ✅ Agent shows message first
-"I will commit with the following message:
-  feat(auth): add login form with validation
-Confirm?"
+# ✅ Agent shows combined preview, single confirmation
+"Preview:
+  Commit: feat(auth): add login form with validation
+  PR: feat/auth-login → development
+  PR Title: feat(auth): add login form with validation
+Confirm all? / Edit / Cancel"
 
-# ❌ Agent commits without showing message
-git commit -m "feat(auth): add login form with validation"  ← user never saw this
+# ❌ Agent asks 4 separate questions: "commit?" → "push?" → "PR?" → "confirm PR?"
 ```
+
+> **Platform-specific details:** See `platforms/bitbucket.md` or `platforms/github.md` for the exact interaction flow with preview files and tool-specific confirmation patterns.
 
 ### Iterative Workflow
 
-If new changes arise after a commit (e.g., fixing a review comment, addressing lint errors, or adding missed files), the agent MUST re-enter the workflow from the appropriate step:
+If new changes arise after a commit (e.g., fixing a review comment, addressing lint errors, or adding missed files), the agent MUST re-enter the workflow from the appropriate phase:
 
 1. **Assess** — what changed and why
 2. **Stage selectively** — only the new/modified files
-3. **Show commit message** — for user review (per the rule above)
-4. **Commit** — after approval
-5. **Push** — if previous commits were already pushed
+3. **Re-enter the optimized workflow** — Phase 0 (prepare) → Interaction 1 (confirm) → Phase 2 (execute)
 
-Do not skip steps or batch leftover changes silently. Each round of changes follows the same discipline.
+Do not skip phases or batch leftover changes silently. Each round of changes follows the same discipline.
 
 ### Session End Gate
 
-**MANDATORY:** After completing any task or yielding control, the agent MUST call the `vscode_askQuestions` tool to ask the user about the next action. Derive context-appropriate options from the current state and always include a "pause/stop" option. This applies after every commit, push, PR creation, or code change — not only at session end.
+**MANDATORY:** After completing the commit/PR workflow (or any task), the agent MUST ask the user about the next action using the environment's question/ask tool. Derive context-appropriate options from the current state and always include a "pause/stop" option.
+
+This is handled by **Interaction 2** in the optimized workflow — which combines result reporting with next-step options. No separate "session end" prompt is needed if Interaction 2 already covers it.
 
 ### MCP Tool Pitfalls
 

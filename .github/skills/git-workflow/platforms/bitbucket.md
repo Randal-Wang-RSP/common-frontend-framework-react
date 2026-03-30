@@ -6,524 +6,489 @@ Platform-specific scripted commit and PR workflow for Bitbucket-hosted repositor
 >
 > **Prerequisite:** Read the main [SKILL.md](../SKILL.md) first for generic Git Flow rules,
 > branch naming, merge strategy, and AI agent behavior rules. This file covers only the
-> **Bitbucket-specific scripted workflow** — the 9-step commit/PR automation.
+> **Bitbucket-specific scripted workflow** — the optimized 4-phase commit/PR automation.
 
 ---
 
-## ✅ [TASKS] Script-Powered Workflow
+## ✅ [TASKS] Optimized Script-Powered Workflow
 
 > ### 🚨 HARD STOP — READ BEFORE EXECUTING ANY GIT COMMAND
-> 
-> **RULE 1:** You MUST call `vscode_askQuestions` and receive explicit user confirmation **before every push to remote**. No exceptions.
-> 
-> **RULE 2:** The user selecting `✅ 提交变更` in a prior turn is NOT sufficient. Each commit workflow requires its own confirmation at **Step 4.5** (see below).
-> 
+>
+> **RULE 1:** You MUST receive explicit user confirmation **before every push to remote**. No exceptions.
+>
+> **RULE 2:** The user selecting `✅ 提交变更` in a prior turn is NOT sufficient. Each commit workflow requires its own confirmation at **Interaction 1** (see below).
+>
 > **Violation = unauthorised remote push. Never skip the confirmation gate.**
 
-### Step 0: Initialize Todo List (ALWAYS FIRST)
+### Design Principles
 
-Before doing anything else, call `manage_todo_list` to create the full workflow plan:
+This workflow optimizes the commit→push→PR→review pipeline by:
+
+1. **Parallel preparation** — parse diff, read instructions, detect branch simultaneously
+2. **Compressed interactions** — 2 user confirmations instead of 6, without sacrificing safety
+3. **Pipeline execution** — push, PR prep, and review run in parallel where possible
+4. **Single-pass confirmation** — user sees everything upfront and decides once
+
+```
+Phase 0 (auto, parallel) → Interaction 1 (confirm all) → Phase 2 (auto, pipeline) → Interaction 2 (results + next)
+```
+
+---
+
+### Phase 0: Automatic Preparation (Zero Interaction)
+
+**Initialize todo list immediately:**
 
 ```typescript
 manage_todo_list([
-  { id: 1, title: "Request commit permission", status: "not-started" },
-  { id: 2, title: "Parse staged changes",      status: "not-started" },
-  { id: 3, title: "Generate commit message",   status: "not-started" },
-  { id: 4, title: "Validate & format message", status: "not-started" },
-  { id: 5, title: "Confirm push",              status: "not-started" },
-  { id: 6, title: "Execute git workflow",      status: "not-started" },
-  { id: 7, title: "Create PR (if needed)",     status: "not-started" },
-  { id: 8, title: "Code review (optional)",    status: "not-started" },
-  { id: 9, title: "Post-merge cleanup",        status: "not-started" },
+  { id: 1, title: "Prepare: parse diff + read instructions", status: "in-progress" },
+  { id: 2, title: "Generate and validate commit message", status: "not-started" },
+  { id: 3, title: "User confirmation", status: "not-started" },
+  { id: 4, title: "Execute: commit + push", status: "not-started" },
+  { id: 5, title: "Create PR (if requested)", status: "not-started" },
+  { id: 6, title: "Code review (if requested)", status: "not-started" },
+  { id: 7, title: "Results and next steps", status: "not-started" },
 ])
 ```
 
-This gives the user a live view of workflow progress in VS Code.
+**Run these three operations in parallel:**
 
-> **Todo → Step mapping**: id:1 = Step 1 (permission), id:2 = Step 2 (parse), id:3 = Step 3 (generate), id:4 = Step 4 (validate), id:5 = Step 4.5 (confirm gate), id:6 = Step 5 (git push), id:7 = Step 6 (PR), id:8 = Step 8 (code review), id:9 = Step 9 (post-merge cleanup)
+```bash
+# 1. Parse staged changes
+node .github/skills/git-workflow/scripts/parse-diff.js --staged
 
-> **Note**: If Step 1 is skipped (user JUST approved in same turn), mark todo id:1 as `completed` immediately and proceed.
+# 2. Read commit message content rules (AI reads this file)
+# .github/.copilot-commit-message-instructions.md
+
+# 3. Detect current branch and infer target
+git rev-parse --abbrev-ref HEAD
+# feat/* or fix/* → target = development
+# hotfix/* or release/* → target = main
+```
+
+**Then immediately** (still Phase 0, no user interaction):
+
+1. AI generates commit message as JSON `{title, paragraphs}` following the content rules
+2. Pipe to `format-commit.js` for validation:
+   ```bash
+   echo '<json>' | node .github/skills/git-workflow/scripts/format-commit.js
+   ```
+3. If validation fails → fix and retry (user never sees the failure)
+4. Collect ALL commits for PR description (if applicable):
+   ```bash
+   git log origin/<target>..HEAD --format="%s" --reverse
+   ```
+5. AI generates PR title + summary (following the rules in SKILL.md § PR Convention)
+
+**Mark todo id:1 and id:2 as `completed`** once message is validated and PR content prepared.
+
+> **Key insight:** By the time the user sees anything, ALL preparation is done. No waiting.
 
 ---
 
-### Step 1: Request User Permission (MANDATORY)
+### Interaction 1: Combined Confirmation (Replaces 4 Separate Gates)
 
-**Mark todo id:1 as `in-progress` before calling `vscode_askQuestions`.**
+**Mark todo id:3 as `in-progress`.**
 
-Use `vscode_askQuestions` with this structure:
+#### Preview File
 
-```typescript
-{
-  questions: [{
-    header: "提交变更",
-    question: "代码变更已完成并验证。是否提交本次变更到 Git？（本次变更：<brief summary>）",
-    options: [
-      { label: "✅ 允许提交（git add + commit + push）", recommended: true },
-      { label: "❌ 暂不提交（我需要再检查）" }
-    ]
-  }]
-}
-```
-
-**NEVER** proceed without explicit "Allow" selection.
-
-> **Skip condition**: Step 1 MAY be skipped only when the user JUST selected `✅ 提交变更` in the post-implementation `vscode_askQuestions` **in the same response turn**. In that case, treat that selection as the Step 1 approval and proceed directly to Step 2. All other invocations require a fresh `vscode_askQuestions`.
-
-When user selects "Allow": **mark todo id:1 as `completed`**.
-When user selects "Cancel": mark id:1 as `completed`, stop workflow.
-
-### Step 2: Parse Changes
-
-**Mark todo id:2 as `in-progress`**, then run:
-
-IF user selects "Allow":
-
-```bash
-node .github/skills/git-workflow/scripts/parse-diff.js --staged
-```
-
-**Output**: JSON with `{ files, stats, summary }` for context.
-
-**Mark todo id:2 as `completed`** after parsing.
-
-### Step 3: Generate Commit Message Content
-
-**Mark todo id:3 as `in-progress`**.
-
-1. **READ** `.copilot-commit-message-instructions.md` (entire file)
-2. Apply content rules (type selection, imperative mood, English, meaningful description)
-3. Structure message as JSON:
-   ```json
-   {
-     "title": "<type>[scope]: <description>",
-     "paragraphs": [
-       "Description paragraph",
-       "Changes:\n- Item 1\n- Item 2",
-       "Results:\n- Metric"
-     ]
-   }
-   ```
-4. **Focus on CONTENT ONLY** - scripts handle formatting/validation
-
-**Mark todo id:3 as `completed`** once the JSON message is constructed.
-
-### Step 4: Validate & Format Message
-
-**Mark todo id:4 as `in-progress`**.
-
-```bash
-echo '<json>' | node .github/skills/git-workflow/scripts/format-commit.js
-```
-
-**Result**: 
-- ✅ Valid: Returns `{ valid: true, messageFilePath: "/tmp/...", ... }` → **mark todo id:4 as `completed`**
-- ❌ Invalid: Returns `{ valid: false, errors: [...] }` → fix and retry (keep id:4 as `in-progress`)
-
-### Step 4.5: Confirm Before Push (MANDATORY — NO EXCEPTIONS)
-
-**Mark todo id:5 as `in-progress`**.
-
-The formatted commit message is already written to `messageFilePath` by `format-commit.js`.
-Create a human-readable preview file **in the workspace root** and include the path as a link in the confirmation prompt:
-
-> ⚠️ **CRITICAL — Preview file location**: ALWAYS use the **`.tmp/` directory** in workspace root (e.g. `<workspace-root>/.tmp/commit-preview.md`).  
-> **NEVER** use `/tmp`, system temp folders, or paths outside the project.  
+> ⚠️ **CRITICAL — Preview file location**: ALWAYS use the **`.tmp/` directory** in workspace root (e.g. `<workspace-root>/.tmp/commit-preview.md`).
+> **NEVER** use `/tmp`, system temp folders, or paths outside the project.
 > Only workspace-rooted files are visible/clickable in VS Code's Copilot Chat.
 
 ```bash
-# 0. Ensure .tmp directory exists
 mkdir -p .tmp
 ```
 
-```typescript
-// 1. Write a Markdown preview of the commit message
-//    ✅ CORRECT: .tmp directory in workspace root
+Write a combined preview file:
+
+````typescript
 const previewPath = `<absoluteWorkspaceRoot>/.tmp/commit-preview.md`
-//    ❌ WRONG:   /tmp/commit-preview-xxx.md  (not visible in VS Code)
-create_file(previewPath, [
-  `# Commit Preview`,
-  ``,
-  `**Branch**: ${source} → origin/${source}`,
-  ``,
-  `\`\`\``,
-  commitMessageText,   // full formatted message read from messageFilePath
-  `\`\`\``,
-].join('\n'))
 
-// 2. In the CHAT RESPONSE TEXT (not inside ask_questions), output a
-//    Markdown link so the user can click to open the file:
-//      请审阅提交消息：[.tmp/commit-preview.md](.tmp/commit-preview.md)
-//    This renders as a clickable link in Copilot Chat.
+create_file(
+  previewPath,
+  [
+    `# Commit & PR Preview`,
+    ``,
+    `## Diff Summary`,
+    ``,
+    `${diffStats}`, // e.g., "3 files changed: 2 modified, 1 added (+45 -12 lines)"
+    ``,
+    `## Commit Message`,
+    ``,
+    "```",
+    commitMessageText, // full formatted message from format-commit.js
+    "```",
+    ``,
+    `## Pull Request`,
+    ``,
+    `**Branch**: ${source} → ${target}`,
+    `**Title**: ${prTitle}`,
+    `**Commits**: ${commitCount} commit(s)`,
+    ``,
+    `### Description`,
+    ``,
+    prDescription, // full PR description from Step 6b logic
+  ].join("\n")
+)
+````
 
-// 3. Then show a minimal prompt — NO path or content in the question
-ask_questions([{
-  header: "确认推送",
-  question: "已弹出预览，审阅后确认执行 git add → commit → push？",
-  options: [
-    { label: "✅ 确认推送", recommended: true },
-    { label: "✏️ 修改后重新生成", description: "返回 Step 3 重新生成消息" },
-    { label: "❌ 取消" }
-  ]
-}])
+In the chat response text, output a clickable link:
+
+```
+请审阅提交预览：[.tmp/commit-preview.md](.tmp/commit-preview.md)
 ```
 
-- If `✅ 确认推送`:
-  1. **Mark todo id:5 as `completed`**
-  2. `run_in_terminal`: `rm "${previewPath}"`
-  3. Proceed to Step 5
-- If `✏️ 修改后重新生成`:
-  1. `run_in_terminal`: `rm "${previewPath}"`
-  2. Mark id:5 as `not-started`, return to Step 3
-- If `❌ 取消`:
-  1. `run_in_terminal`: `rm "${previewPath}"`
-  2. **STOP. Do NOT run git-workflow.js.**
+Then show ONE combined prompt:
 
-> ⚠️ **This is the only gate that prevents an unauthorised remote push. Never skip it.**
+```typescript
+ask_questions([
+  {
+    header: "确认提交",
+    question: "已弹出预览，请审阅后选择操作：",
+    options: [
+      { label: "✅ 全部执行 (commit + push + PR)", recommended: true },
+      { label: "✅ 仅 commit + push (不创建 PR)" },
+      { label: "✏️ 修改 commit message", description: "返回重新生成消息" },
+      { label: "❌ 取消" },
+    ],
+  },
+])
+```
 
-### Step 5: Execute Git Workflow
+**Handling responses:**
 
-**Mark todo id:6 as `in-progress`**.
+| Selection             | Action                                                                                                 |
+| --------------------- | ------------------------------------------------------------------------------------------------------ |
+| `✅ 全部执行`         | Mark id:3 `completed`. Delete preview. Proceed to Phase 2 with PR creation.                            |
+| `✅ 仅 commit + push` | Mark id:3 `completed`. Delete preview. Proceed to Phase 2 without PR. Mark id:5 `completed` (skipped). |
+| `✏️ 修改`             | Delete preview. Return to Phase 0 message generation. Keep id:3 `in-progress`.                         |
+| `❌ 取消`             | Delete preview. Mark all remaining todos `completed`. **STOP.**                                        |
+
+```bash
+# Always clean up preview file after interaction
+rm -f "${previewPath}"
+```
+
+---
+
+### Phase 2: Automatic Pipeline (Zero Interaction)
+
+Everything here runs automatically after Interaction 1 approval.
+
+#### Step A: Commit + Push
+
+**Mark todo id:4 as `in-progress`.**
 
 ```bash
 node .github/skills/git-workflow/scripts/git-workflow.js \
   --all \
-  --message-file <path-from-step-4> \
+  --message-file <path-from-format-commit> \
   --push
 ```
 
-**Error handling**: Script returns structured errors with suggestions (e.g., commitlint failures, push conflicts).
+**Error handling:**
 
-On success: **mark todo id:6 as `completed`**.
-On failure: keep id:6 as `in-progress`, report the error.
+- **Commit fails** (commitlint, lint-staged): Report error, offer retry → return to Phase 0.
+- **Push fails** (conflict, auth): Report error, suggest resolution.
 
-### Step 6: Offer PR Creation (MANDATORY after successful commit)
+On success: **Mark id:4 as `completed`.**
 
-**Mark todo id:7 as `in-progress`**.
+#### Step B: Create PR (parallel with Step C if applicable)
 
-After `git-workflow.js` reports a successful push, **always** ask the user:
+**Skip if user chose "仅 commit + push".** Mark id:5 `completed` and jump to Step C.
 
-```typescript
-{
-  questions: [{
-    header: "创建 PR",
-    question: "提交已推送。是否需要创建 Pull Request？",
-    options: [
-      { label: "✅ 创建 PR → development", recommended: true },
-      { label: "✅ 创建 PR → main" },
-      { label: "❌ 不需要，结束流程" }
-    ]
-  }]
-}
-```
+**Mark todo id:5 as `in-progress`.**
 
-IF user selects "❌ 不需要": **mark todo id:7 as `completed`**, workflow ends.
-
-IF user selects a branch target, follow this sequence:
-
-#### 6a. Collect ALL commits since merge base (MANDATORY — must execute)
+> **Parallel opportunity:** PR title + summary were already generated in Phase 0.
+> No additional computation needed — just call the API.
 
 ```bash
-git log origin/<target>..HEAD --format="%s" --reverse
-```
-
-> ⚠️ **CRITICAL**: You MUST execute this command and capture the FULL output.
-> Do NOT skip this step. Do NOT assume you know the commits.
-> The PR title and summary MUST be based on ALL commits, not just the latest one.
-
-#### 6b. AI generates PR title AND summary (MANDATORY — do NOT skip)
-
-**INPUT**: The COMPLETE commit list from Step 6a (all commits, oldest → newest)
-
-**REQUIREMENT**: Analyze **EVERY commit** in the list and produce **two outputs**:
-
-**① Title** — concise headline for the PR:
-- Follows **conventional commit** format: `type(scope): description`
-- Uses the **dominant type** by priority: `feat > fix > perf > refactor > chore`
-- Sets `(scope)` to the branch name stripped of its prefix (e.g. `feature/setup` → `setup`)
-- The **description** must **semantically summarize what this ENTIRE PR achieves** as a whole
-  — ⚠️ **CRITICAL**: Do NOT copy-paste ONE commit message
-  — ⚠️ **CRITICAL**: Do NOT ignore commits — analyze ALL of them
-  — ⚠️ **CRITICAL**: If there are 5 commits, your summary must reflect all 5
-  — think: "What would a reviewer need to know at a glance about this entire branch?"
-- Must be ≤ 72 characters
-- Good examples:
-  - `feat(setup): initial project scaffolding and CI automation`
-  - `fix(auth): resolve token refresh race condition`
-  - `refactor(time-runner): extract PiP logic and improve UI layout`
-
-**② Summary paragraph** — 2-3 sentence natural-language overview for the PR description body:
-- Describe *what changed and why* **across ALL commits**, not just one commit
-- ⚠️ **CRITICAL**: Must cover the FULL scope of changes in the commit list from 6a
-- Audience: a code reviewer who needs context at a glance
-- Do NOT exceed 3 sentences; avoid repeating the title
-- Good examples:
-  - `Refactors the PiP window feature into a dedicated hook and component, improving layout consistency and making the UI resize-aware. Also automates Bitbucket PR creation with commit-driven title and description generation.`
-  - `Adds support for theme tokens in PiP forms, fixes UTF-8 encoding issues in skill documentation, and standardizes the five-element framework across all prompt files.`
-
-#### 6c. Preview in VS Code, then confirm
-
-```bash
-# 1. Dry-run to build the full payload without calling the API
 node .github/skills/git-workflow/scripts/create-pr.js \
   --target <development|main> \
-  --title "<AI-generated title from 6b ①>" \
-  --summary "<AI-generated summary paragraph from 6b ②>" \
-  [--pr-id <n>] \
-  --dry-run
+  --title "<title-from-phase-0>" \
+  --summary "<summary-from-phase-0>" \
+  [--pr-id <n>]   # omit for new PR; add to update existing
 ```
+
+**Handling `create-pr.js` output:**
+
+| `success` | Field         | Action                                                        |
+| --------- | ------------- | ------------------------------------------------------------- |
+| `true`    | `url`         | Record PR URL for Interaction 2                               |
+| `false`   | `fallbackUrl` | Credentials not configured → include `fallbackUrl` in results |
+| `false`   | `error` only  | Record error for Interaction 2                                |
+
+On completion: **Mark id:5 as `completed`.**
+
+#### Step C: Code Review (parallel with Step B)
+
+**Mark todo id:6 as `in-progress`.**
+
+> **Parallel opportunity:** Code review analyzes the local diff, not the PR.
+> It can start as soon as commit succeeds — no need to wait for PR creation.
+
+Run the code review workflow:
+
+1. Read `.github/skills/requesting-code-review/SKILL.md`
+2. Follow the skill instructions to analyze the diff
+3. Collect findings (severity: Critical / Important / Suggestion)
+
+If a PR was created (Step B succeeded), post findings as PR comments:
 
 ```bash
-# 2. Ensure .tmp directory exists
-mkdir -p .tmp
+# Inline comments
+node .github/skills/git-workflow/scripts/add-pr-comment.js \
+  --pr-id <pr-number> \
+  --signature "🤖 *AI Review — GitHub Copilot*" \
+  --data '[
+    { "file": "src/path/to/file.ts", "line": 10, "comment": "**[Critical]** Issue..." },
+    { "file": "src/path/to/other.ts", "line": 25, "comment": "**[Suggestion]** Consider..." }
+  ]'
+
+# General summary
+node .github/skills/git-workflow/scripts/add-pr-comment.js \
+  --pr-id <pr-number> \
+  --signature "🤖 *AI Review — GitHub Copilot*" \
+  --comment "## 🔍 Code Review Summary\n\n<markdown summary>"
 ```
 
-```typescript
-// 3. Write a human-readable Markdown preview in the .tmp directory.
-//    ⚠️ MUST use .tmp/ in workspace root so the file is visible and git-ignored.
-//    ⚠️ ALWAYS delete existing file first, then create fresh.
-//       Temp files may have been modified by external tools between sessions.
-//       NEVER use replace_string_in_file on temp/preview files — always rm + create_file.
-const previewPath = `<absoluteWorkspaceRoot>/.tmp/pr-preview.md`
+On completion: **Mark id:6 as `completed`.**
 
-// Step 3a: Delete any existing preview file
-run_in_terminal(`rm -f "${previewPath}"`)
-
-// Step 3b: Create fresh preview file
-create_file(previewPath, [
-  `# PR Preview`,
-  ``,
-  `**Title**: ${payload.title}`,
-  `**${isUpdate ? 'Updating' : 'Creating'}**: ${source} → ${target}`,
-  `**Commits included**: ${commits.length} (from Step 6a)`,
-  ``,
-  `---`,
-  ``,
-  payload.description,
-].join('\n'))
-
-// Step 3c: Read-back verification (MANDATORY)
-//    Immediately read the file after writing to confirm content matches.
-//    If title or commit count mismatch → delete and recreate.
-read_file(previewPath)  // verify title + commits count
-
-// 4. In the CHAT RESPONSE TEXT, output a Markdown link:
-//      请审阅 PR 预览：[.tmp/pr-preview.md](.tmp/pr-preview.md)
-//    Clickable in Copilot Chat. Do NOT put the path inside ask_questions.
-//    ⚠️ VERIFICATION: Check that "Commits included" matches the count from 6a.
-
-// 5. Show a minimal prompt — NO path or content in the question
-ask_questions([{
-  header: "确认 PR",
-  question: `已弹出预览，审阅后确认${isUpdate ? '更新' : '创建'} PR？`,
-  options: [
-    { label: "✅ 确认", recommended: true },
-    { label: "✏️ 修改标题或概述", description: "返回 6b 重新生成" },
-    { label: "❌ 取消" }
-  ]
-}])
-```
-
-```bash
-# On confirm ✅ — delete preview then call the API
-rm "${previewPath}"
-node .github/skills/git-workflow/scripts/create-pr.js \
-  --target <development|main> \
-  --title "<title>" \
-  --summary "<summary>" \
-  [--pr-id <n>]
-
-# On cancel/retry ✏️ or ❌ — always delete the preview file first
-rm "${previewPath}"
-```
-
-> **Note on `--pr-id`**: omit when creating a new PR; add `--pr-id <number>` to update an existing one (uses HTTP PUT, expects HTTP 200).
-
-**Handling `create-pr.js` output**:
-
-| `success` | field | Action |
-|-----------|-------|--------|
-| `true` | `url` | **Mark todo id:7 as `completed`**. Report PR URL to user — workflow complete ✅ |
-| `false` | `fallbackUrl` | Mark todo id:7 as `completed`. Credentials not configured → tell user to open `fallbackUrl` in browser |
-| `false` | `error` only | Mark todo id:7 as `completed`. Report error message — workflow complete with warning ⚠️ |
-
-> ### 🚨 MANDATORY WORKFLOW END RULE
->
-> After marking id:7 as `completed`, if you have **any follow-up question** for the user
-> (e.g. "是否还需要更新 PR 描述？", "需要我做 code review 吗？"), you MUST ask it via
-> `vscode_askQuestions`. **Never use plain chat text as a question.** Plain text questions are
-> invisible to the workflow and cannot be tracked or enforced.
+> **Note:** If code review was not requested or takes too long, skip and report "review available on demand" in Interaction 2.
 
 ---
 
-### Step 8: Optional Code Review (AFTER PR success)
+### Interaction 2: Results + Next Steps (Replaces 3 Separate Gates)
 
-**Mark todo id:8 as `in-progress`**.
+**Mark todo id:7 as `in-progress`.**
 
-After PR creation succeeds (Step 6 marked as `completed`), **always** offer code review:
+Present a unified results summary in the chat:
 
-```typescript
-{
-  questions: [{
-    header: "代码审查",
-    question: "PR 已创建成功。是否需要立即执行代码审查？",
-    options: [
-      { label: "🔍 立即执行代码审查", description: "读取 requesting-code-review skill 并执行" },
-      { label: "⏸️ 稍后手动审查", description: "结束工作流", recommended: true },
-      { label: "📝 继续其他工作", description: "结束工作流" }
-    ]
-  }]
-}
+```markdown
+## Results
+
+| Step   | Status | Detail                                           |
+| ------ | ------ | ------------------------------------------------ |
+| Commit | ✅     | `abc1234` — feat(auth): add login form           |
+| Push   | ✅     | → origin/feat/auth-login                         |
+| PR     | ✅     | #42 — https://bitbucket.org/.../pull-requests/42 |
+| Review | 🔍     | 0 Critical, 1 Important, 2 Suggestions           |
 ```
 
-**IF user selects "🔍 立即执行代码审查"**:
+Then ask about next steps:
 
-1. **Read the skill file**:
-   ```typescript
-   read_file({
-     filePath: "d:\\source\\rsp\\ctw\\.github\\skills\\requesting-code-review\\SKILL.md",
-     startLine: 1,
-     endLine: 999  // Read entire file
-   })
-   ```
+```typescript
+ask_questions([
+  {
+    header: "下一步",
+    question: "提交流程已完成。接下来需要什么？",
+    options: [
+      { label: "📋 查看 Code Review 详情" },
+      { label: "🔧 修复 Review 发现的问题", description: "自动修复并创建新 commit" },
+      { label: "🧹 合并后清理", description: "切回 development + 删除分支" },
+      { label: "📝 继续其他工作" },
+      { label: "⏸️ 暂停" },
+    ],
+  },
+])
+```
 
-2. **Follow the skill instructions** to execute the code review workflow
+**Handling responses:**
 
-3. **Post review findings to PR (MANDATORY when PR exists)**:
+| Selection             | Action                                                               |
+| --------------------- | -------------------------------------------------------------------- |
+| `📋 查看详情`         | Display full review findings in chat. Re-ask with remaining options. |
+| `🔧 修复问题`         | Fix findings → re-enter workflow from Phase 0 for the fix commit.    |
+| `🧹 合并后清理`       | Execute post-merge cleanup (see below).                              |
+| `📝 继续` / `⏸️ 暂停` | Mark id:7 `completed`. End workflow.                                 |
 
-   After the code review produces findings, use `add-pr-comment.js` to post them
-   as comments on the PR page so reviewers can see them in context.
-
-   **AI Signature**: Always include `--signature` to attribute AI-generated comments:
-   ```
-   --signature "🤖 *AI Review — GitHub Copilot*"
-   ```
-
-   **Inline comments** (for file-specific findings):
-   ```bash
-   node .github/skills/git-workflow/scripts/add-pr-comment.js \
-     --pr-id <pr-number> \
-     --signature "🤖 *AI Review — GitHub Copilot*" \
-     --data '[
-       { "file": "src/path/to/file.ts", "line": 10, "comment": "**[Critical]** Issue description..." },
-       { "file": "src/path/to/other.ts", "line": 25, "comment": "**[Important]** Suggestion..." }
-     ]'
-   ```
-
-   **General summary comment** (for overall review):
-   ```bash
-   node .github/skills/git-workflow/scripts/add-pr-comment.js \
-     --pr-id <pr-number> \
-     --signature "🤖 *AI Review — GitHub Copilot*" \
-     --comment "## 🔍 Code Review Summary\n\n<markdown summary of all findings>"
-   ```
-
-   **Comment formatting rules**:
-   - Prefix severity: `**[Critical]**`, `**[Important]**`, `**[Suggestion]**`
-   - Use Markdown formatting in comment content
-   - Include file path and line number in the comment body as fallback
-   - Post inline comments first, then a general summary comment last
-
-   > **Note**: If `add-pr-comment.js` fails (missing credentials), report findings in chat instead.
-   > The code review results are still valuable even without PR comments.
-
-4. **Fix issues and reply to review comments (MANDATORY after fixes)**:
-
-   After fixing review findings, reply to each original comment with the fix result.
-   Use `--parent-id` to create threaded replies:
-
-   **Single reply** (CLI mode):
-   ```bash
-   node .github/skills/git-workflow/scripts/add-pr-comment.js \
-     --pr-id <pr-number> \
-     --parent-id <comment-id> \
-     --signature "🤖 *AI Review — GitHub Copilot*" \
-     --comment "Fixed in <commit-hash>: <brief description of fix>"
-   ```
-
-   **Batch replies** (multiple comments at once):
-   ```bash
-   node .github/skills/git-workflow/scripts/add-pr-comment.js \
-     --pr-id <pr-number> \
-     --signature "🤖 *AI Review — GitHub Copilot*" \
-     --data '[
-       { "parentId": 12345, "comment": "Fixed in abc1234: Added NaN validation" },
-       { "parentId": 12346, "comment": "Fixed in abc1234: Extracted to utils.js" }
-     ]'
-   ```
-
-   **Reply content guidelines**:
-   - Start with commit hash: `"Fixed in <hash>: ..."`
-   - Briefly describe what was changed
-   - Include test/verification result if applicable
-
-5. **After code review completes**: mark todo id:8 as `completed`, workflow ends ✅
-
-**IF user selects "⏸️ 稍后手动审查" or "📝 继续其他工作"**:
-
-- Mark todo id:8 as `completed`
-- Workflow ends ✅
-
-> **Note**: This step is OPTIONAL. Users may prefer to review code later or have already reviewed during implementation. The choice respects different workflow preferences.
+**Mark id:7 as `completed`** after user selects any terminal option.
 
 ---
 
-### Step 9: Post-Merge Cleanup (AFTER PR is merged)
+### Post-Merge Cleanup (On Demand)
 
-**Mark todo id:9 as `in-progress`**.
-
-This step activates when the user confirms that the PR has been merged (or when the agent detects a merged PR). It cleans up the local workspace by switching back to development and pulling the latest changes.
-
-**1. Switch to development and pull latest**:
+Activated when user selects "🧹 合并后清理" or says "已合并" / "merged":
 
 ```bash
+# Switch to development and pull latest
 git checkout development && git pull origin development
 ```
 
-**2. Optionally delete the feature branch**:
+Then offer branch deletion:
 
 ```typescript
-ask_questions([{
-  header: "清理分支",
-  question: `PR 已合并。是否删除本地分支 \`${featureBranch}\`？`,
-  options: [
-    { label: `✅ 删除 ${featureBranch}`, recommended: true },
-    { label: "❌ 保留分支" }
-  ]
-}])
+ask_questions([
+  {
+    header: "清理分支",
+    question: `是否删除本地分支 \`${featureBranch}\`？`,
+    options: [{ label: `✅ 删除 ${featureBranch}`, recommended: true }, { label: "❌ 保留分支" }],
+  },
+])
 ```
 
-If user confirms deletion:
+If confirmed:
+
 ```bash
 git branch -d <feature-branch>
 ```
 
-**3. Report cleanup result**:
-
 Report: `✅ 已切换到 development 并更新到最新 (${shortHash})。本地分支 \`${featureBranch}\` 已删除。`
-
-**Mark todo id:9 as `completed`**.
-
-> **Trigger**: This step is offered after the user says "已合并" / "merged" / "PR 已合并",
-> or when the agent detects the PR has been merged via API.
-> It can also be included as an option in the post-workflow `vscode_askQuestions`.
 
 ---
 
 ### Workflow Complete — Hand Back to Session
 
-After the git-commit-workflow ends (regardless of which step):
+After the workflow ends (regardless of which phase):
 
-1. **Clear the todo list** (`manage_todo_list` with empty array)
-2. **Trigger the universal ask_questions rule** from `copilot-instructions.md` Section 5A
+1. **Clear the todo list** (empty array)
+2. **Trigger the universal session end gate** from `copilot-instructions.md`
    - Derive options from current session context
    - This is MANDATORY — the commit workflow does NOT own the session end
 
 > ⚠️ The git-commit-workflow is a **sub-workflow**. When it completes,
-> control returns to the main session. Section 5A always applies.
+> control returns to the main session.
 
 ---
 
-**Credentials setup** (guide user through this when `fallbackUrl` is returned):
+## 🔄 Error Recovery
+
+### Commit Failure (commitlint / lint-staged)
+
+```
+Phase 2 Step A fails → Report specific error → Offer:
+  ✏️ "Auto-fix and retry" (for lint issues)
+  🔙 "Return to Phase 0" (for message issues)
+  ❌ "Cancel workflow"
+```
+
+### Push Failure (conflict / auth)
+
+```
+Phase 2 Step A push fails → Report error → Offer:
+  🔄 "Pull and rebase, then retry"
+  ❌ "Cancel (commit preserved locally)"
+```
+
+### PR Creation Failure (auth / API)
+
+```
+Phase 2 Step B fails → Still report commit/push success in Interaction 2
+  → Include fallback URL for manual PR creation
+  → Workflow is NOT blocked — PR is optional
+```
+
+---
+
+## 💡 [EXAMPLES] Usage Patterns
+
+### Example 1: Full Flow (commit + push + PR + review)
+
+```
+Phase 0 (auto):
+  parse-diff → "3 files: 2 modified, 1 added (+45 -12 lines)"
+  read instructions + generate message + validate → valid ✅
+  detect branch: feat/auth-login → target: development
+  prepare PR title + summary
+
+Interaction 1:
+  User sees preview with diff summary + commit message + PR description
+  User selects: "✅ 全部执行 (commit + push + PR)"
+
+Phase 2 (auto, pipeline):
+  git-workflow.js → commit abc1234 + push ✅
+  ├─ (parallel) create-pr.js → PR #42 ✅
+  └─ (parallel) code review → 1 Important, 2 Suggestions
+
+Interaction 2:
+  Shows: commit ✅, push ✅, PR #42 ✅, review 🔍
+  User selects: "📝 继续其他工作"
+  Workflow ends ✅
+```
+
+### Example 2: Commit Only (no PR)
+
+```
+Phase 0 (auto):
+  parse + generate + validate → valid ✅
+
+Interaction 1:
+  User selects: "✅ 仅 commit + push (不创建 PR)"
+
+Phase 2 (auto):
+  git-workflow.js → commit def5678 + push ✅
+  PR step: skipped
+  Review: skipped
+
+Interaction 2:
+  Shows: commit ✅, push ✅
+  User selects: "⏸️ 暂停"
+  Workflow ends ✅
+```
+
+### Example 3: Validation Failure Recovery
+
+```
+Phase 0 (auto):
+  generate message → format-commit.js → { valid: false, errors: ["Body line exceeds 72 chars"] }
+  Auto-fix: shorten line → retry → { valid: true } ✅
+  (User never sees the failure)
+
+Interaction 1:
+  User sees clean preview → "✅ 全部执行"
+  Proceeds normally
+```
+
+### Example 4: Push Conflict Recovery
+
+```
+Phase 0 + Interaction 1: normal flow
+
+Phase 2:
+  git-workflow.js → commit ✅, push FAILED (conflict)
+
+  Agent reports: "Push 失败：远程有新提交。"
+  Offers: "🔄 Pull rebase and retry" / "❌ Cancel"
+
+  User: "🔄 retry"
+  git pull --rebase origin development
+  git push → ✅
+
+Interaction 2: normal results display
+```
+
+---
+
+## 📊 Performance Comparison
+
+| Metric                 | Before (9-step) | After (4-phase)     | Improvement |
+| ---------------------- | --------------- | ------------------- | ----------- |
+| User interactions      | 6               | 2                   | **-67%**    |
+| Sequential wait points | 9               | 4                   | **-56%**    |
+| Parallel operations    | 0               | 3 groups            | ∞           |
+| Estimated wall time    | 60-120s         | 15-30s + 2 confirms | **~60-75%** |
+
+---
+
+## 🔗 Script Reference
+
+Scripts are located at `.github/skills/git-workflow/scripts/`:
+
+| Script                | Purpose            | Input                                                     | Output                        |
+| --------------------- | ------------------ | --------------------------------------------------------- | ----------------------------- |
+| `parse-diff.js`       | Analyze changes    | `--staged` or `--files`                                   | JSON: files, stats, summary   |
+| `validate-message.js` | Validate format    | stdin: plain text                                         | JSON: valid, errors           |
+| `format-commit.js`    | Format & write     | stdin: `{title, paragraphs}`                              | JSON: messageFilePath, valid  |
+| `git-workflow.js`     | Execute workflow   | `--all --message-file <path> --push`                      | JSON: add/commit/push results |
+| `create-pr.js`        | Create / update PR | `--target <branch> [--title] [--summary] [--description]` | JSON: success, url            |
+| `add-pr-comment.js`   | Add PR comments    | `--pr-id <n> --comment <text>`                            | JSON: success, results        |
+
+> Prefer using `--summary` with `create-pr.js` so the script can auto-generate the full description. You may also pass `--description` manually; the script will normalize literal `\n` / `\r` sequences to real newlines for cross-shell compatibility.
+
+---
+
+## 🔑 Credentials Setup
 
 > ⚠️ **Important**: Must use a **Bitbucket Cloud API Token** — NOT an Atlassian Account API Token.
 > The `ATATT3x...` tokens from `id.atlassian.com` are for Jira/Confluence and will **not** work with `api.bitbucket.org`.
@@ -537,70 +502,4 @@ After the git-commit-workflow ends (regardless of which step):
    export BITBUCKET_TOKEN="your-bitbucket-api-token"
    ```
    Then run: `source ~/.bashrc`
-3. Or set both `BITBUCKET_EMAIL` and `BITBUCKET_TOKEN` in **Windows User Environment Variables** and restart VS Code.
-
----
-
-
----
-
-### 3. Script Delegation
-
-**Let scripts handle**:
-- Character limit validation (title ≤100, body ≤72)
-- Message file writing and `git commit -F <file>` execution
-- Conventional commit format verification
-- Git command sequencing and error handling
-
-**Your responsibility**:
-- Generating meaningful commit content
-- Selecting appropriate type/scope
-- Crafting clear descriptions and metrics
-
----
-
-
----
-
-## 💡 [EXAMPLES] Usage Patterns
-
-### Example 1: Standard Feature Commit (with PR)
-
-```
-1. ask_questions → User: "✅ 允许"
-2. parse-diff.js → "3 files: 2 modified, 1 added (+45 -12 lines)"
-3. Read guidelines → Generate JSON:
-   { "title": "feat(auth): add OAuth2 login",
-     "paragraphs": ["Implement OAuth2 with Google provider", "Changes:\n- Add strategy config\n- Integrate library"] }
-4. format-commit.js → { valid: true, messageFilePath: "/tmp/msg.txt" }
-5. git-workflow.js --all --message-file /tmp/msg.txt --push
-   → { commit: { success: true, hash: "abc123" }, push: { success: true } }
-6. ask_questions → User: "✅ 创建 PR → development"
-   create-pr.js --target development
-   → { success: true, url: "https://bitbucket.org/.../pull-requests/42" }
-   Report: "PR created: https://..."
-```
-
-### Example 2: Validation Failure Recovery
-
-```
-1-3. [Normal flow]
-4. format-commit.js → { valid: false, errors: ["Body line 2 exceeds 72 chars (78 chars): '- Implement comprehensive validation logic...'"] }
-5. Shorten line: "- Implement comprehensive validation\n- Add credential checks"
-6. Retry format-commit.js → { valid: true }
-7. Proceed with git-workflow.js
-```
-
----
-
-
----
-
-## 🔗 Related Files
-
-- **Content Rules**: `.github/.copilot-commit-message-instructions.md` (MANDATORY)
-- **Scripts**: `.github/skills/git-workflow/scripts/*.js`
-- **Validation Config**: `commitlint.config.ts`
-
----
-
+3. Or set both `BITBUCKET_EMAIL` and `BITBUCKET_TOKEN` in **Windows User Environment Variables** and restart your editor.
