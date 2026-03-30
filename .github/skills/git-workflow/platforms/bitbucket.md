@@ -67,7 +67,7 @@ Prep Subagent (background) → Main Agent: Interaction 1 → Execute Subagent (s
 **Main agent fires a background subagent to analyze changes and prepare everything:**
 
 ```typescript
-const prepTask = task(
+const prepTask = task({
   category: "quick",
   load_skills: ["git-master"],
   run_in_background: true,
@@ -112,8 +112,8 @@ const prepTask = task(
     - Do NOT run git add, git commit, or git push
     - Do NOT interact with the user
     - Do NOT create files outside .tmp/
-  `
-)
+  `,
+})
 // Store: prepTask.task_id, prepTask.session_id
 // Continue with non-overlapping work or end response to wait for completion
 ```
@@ -121,7 +121,7 @@ const prepTask = task(
 **When Prep completes**, collect results:
 
 ```typescript
-const prepResult = background_output(task_id: prepTask.task_id)
+const prepResult = background_output({ task_id: prepTask.task_id })
 // Extract structured sections: DIFF_SUMMARY, COMMIT_MESSAGE, PR_TITLE, etc.
 ```
 
@@ -220,10 +220,10 @@ rm -f "${previewPath}"
 **Main agent delegates commit + push to the Execute Subagent, reusing Prep's session:**
 
 ```typescript
-const execTask = task(
-  session_id: prepTask.session_id,  // Reuses Prep's full context (diff, files, message)
+const execTask = task({
+  session_id: prepTask.session_id, // Reuses Prep's full context (diff, files, message)
   load_skills: ["git-master"],
-  run_in_background: false,         // Sync — main agent waits for result
+  run_in_background: false, // Sync — main agent waits for result
   description: "Git execute: commit and push",
   prompt: `
     [CONTEXT]
@@ -262,8 +262,8 @@ const execTask = task(
     - Do NOT create PRs
     - Do NOT force push
     - Do NOT amend commits
-  `
-)
+  `,
+})
 ```
 
 **Main agent evaluates result:**
@@ -278,8 +278,8 @@ const execTask = task(
 
 **Skipped if user chose "仅 commit + push".**
 
-```typescript
-const prTask = task(
+````typescript
+const prTask = task({
   category: "quick",
   load_skills: ["git-master"],
   run_in_background: false,
@@ -326,8 +326,8 @@ const prTask = task(
     - Do NOT modify any source code
     - Do NOT make additional commits
     - Do NOT interact with the user
-  `
-)
+  `,
+})
 ```
 
 ---
@@ -341,11 +341,11 @@ Present a unified results summary assembled from subagent outputs:
 
 | Step   | Status | Detail                                      |
 | ------ | ------ | ------------------------------------------- |
-| Commit | ✅     | `${execResult.COMMIT_SHA}` — ${commitTitle} |
+| Commit | ✅     | `${execResult.COMMIT_SHA}` — ${prepResult.COMMIT_MESSAGE.split("\n")[0]} |
 | Push   | ✅     | → origin/${prepResult.BRANCH}               |
 | PR     | ✅     | #42 — ${prResult.PR_URL}                    |
 | Review | 🔍     | ${prResult.REVIEW_SUMMARY}                  |
-```
+````
 
 Then ask about next steps:
 

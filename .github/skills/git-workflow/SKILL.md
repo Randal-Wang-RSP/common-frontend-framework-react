@@ -535,7 +535,7 @@ The agent MUST show commit message AND PR details to the user before executing �
 1. **Prep Subagent prepares everything** — generate commit message, validate it, prepare PR title/summary
 2. **Main agent shows combined preview** — commit message + PR description in one view (from Prep output)
 3. **Single confirmation** — user approves/edits/cancels in one interaction
-4. **Execute Subagent runs pipeline** — commit → push → PR creation runs automatically after approval
+4. **Execute Subagent runs pipeline** — commit → push runs automatically after approval; optional **PR Subagent** creates the PR
 
 ```
 # ✅ Prep Subagent returns structured summary → Main agent shows preview → single confirmation

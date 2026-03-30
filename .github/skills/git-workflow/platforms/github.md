@@ -47,7 +47,7 @@ Prep Subagent (background) → Main Agent: Interaction 1 → Execute Subagent (s
 ### Phase 0: Prep Subagent
 
 ```typescript
-const prepTask = task(
+const prepTask = task({
   category: "quick",
   load_skills: ["git-master"],
   run_in_background: true,
@@ -86,8 +86,15 @@ const prepTask = task(
     [MUST NOT DO]
     - Do NOT run git add, git commit, or git push
     - Do NOT interact with the user
-  `
-)
+  `,
+})
+```
+
+**When Prep completes**, collect results:
+
+```typescript
+const prepResult = background_output({ task_id: prepTask.task_id })
+// Extract structured sections: DIFF_SUMMARY, COMMIT_MESSAGE, PR_TITLE, etc.
 ```
 
 ### Interaction 1: Combined Confirmation (Main Agent)
@@ -115,8 +122,8 @@ ask_questions([
 
 ### Phase 2: Execute Subagent
 
-```typescript
-const execTask = task(
+````typescript
+const execTask = task({
   session_id: prepTask.session_id,
   load_skills: ["git-master"],
   run_in_background: false,
@@ -149,8 +156,8 @@ const execTask = task(
     - Do NOT create PRs
     - Do NOT force push
     - Do NOT interact with the user
-  `
-)
+  `,
+})
 ```
 
 ### PR Subagent (Optional)
@@ -158,7 +165,7 @@ const execTask = task(
 **Skipped if user chose "仅 commit + push".**
 
 ```typescript
-const prTask = task(
+const prTask = task({
   category: "quick",
   load_skills: ["git-master"],
   run_in_background: false,
@@ -179,8 +186,8 @@ const prTask = task(
       gh pr create \
         --title "${prepResult.PR_TITLE}" \
         --body "$(cat <<'EOF'
-      ${prepResult.PR_SUMMARY}
-      EOF
+${prepResult.PR_SUMMARY}
+EOF
       )" \
         --base ${prepResult.TARGET}
 
@@ -212,9 +219,9 @@ const prTask = task(
     - Do NOT modify source code
     - Do NOT make commits
     - Do NOT interact with the user
-  `
-)
-```
+  `,
+})
+````
 
 ### Interaction 2: Results + Next Steps (Main Agent)
 
