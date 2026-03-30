@@ -361,10 +361,10 @@ Format: `v<MAJOR>.<MINOR>.<PATCH>`
 
 ## Platform-Specific PR Workflow
 
-This skill supports multiple hosting platforms. The agent determines which platform to use by reading the **Hosting** field in `copilot-instructions.md` → Context section.
+This skill supports multiple hosting platforms with **subagent-delegated workflows**. The agent determines which platform to use by reading the **Hosting** field in `copilot-instructions.md` → Context section.
 
 ```
-Hosting = GitHub    → Read platforms/github.md    (MCP tools)
+Hosting = GitHub    → Read platforms/github.md    (gh CLI / MCP tools)
 Hosting = Bitbucket → Read platforms/bitbucket.md (project scripts)
 ```
 
@@ -372,7 +372,7 @@ Hosting = Bitbucket → Read platforms/bitbucket.md (project scripts)
 
 1. Check `copilot-instructions.md` for the `Hosting:` value
 2. Load **only** the corresponding platform file using `read_file`
-3. Follow the platform-specific workflow for PR creation and management
+3. Follow the platform-specific subagent delegation workflow for commit and PR operations
 
 | Platform  | PR Creation                      | PR Comments                    | Authentication                        |
 | --------- | -------------------------------- | ------------------------------ | ------------------------------------- |
@@ -472,26 +472,80 @@ git commit -m "docs(features): add auth feature example"
 - Amending published commits (`git commit --amend` after push)
 - Tagging releases
 
+### Subagent Orchestration Model
+
+In orchestrator-capable environments (e.g., opencode with Sisyphus), the commit/PR workflow is **delegated to specialized subagents** to keep the main agent's context minimal. The main agent only handles user interactions and orchestration decisions.
+
+**Architecture:**
+
+```
+Prep Subagent (background) → Main Agent: Interaction 1 → Execute Subagent (sync) → Main Agent: Interaction 2
+                                                                                 └→ PR Subagent (optional, sync)
+```
+
+| Subagent    | Category | Skills       | Run Mode   | Purpose                                    |
+| ----------- | -------- | ------------ | ---------- | ------------------------------------------ |
+| **Prep**    | `quick`  | `git-master` | background | Analyze changes, draft message, prepare PR |
+| **Execute** | —        | `git-master` | sync       | Stage, commit, push, handle hooks          |
+| **PR**      | `quick`  | `git-master` | sync       | Create PR, post review comments            |
+
+**Key patterns:**
+
+- **Session chaining:** Execute reuses Prep's `session_id` — full context preserved, zero re-reading
+- **Background prep:** Prep runs as `run_in_background=true` — main agent can do non-overlapping work
+- **Structured output:** Each subagent returns labeled fields (STATUS, COMMIT_SHA, PR_URL, etc.) — main agent never processes raw git output
+- **Internal failure recovery:** Subagents auto-fix validation/lint failures internally — main agent only sees final results
+
+**Fallback:** In environments without `task()` support (e.g., VS Code Copilot), the main agent runs all operations directly following the same phase structure. The workflow is identical — only the execution boundary changes.
+
+### Environment Adaptation
+
+This workflow supports both **opencode (Sisyphus)** and **VS Code Copilot**. The phase structure and logic are identical — only the tool calls differ.
+
+#### Tool Mapping
+
+| Operation         | opencode (Sisyphus)                                                   | VS Code Copilot                       |
+| ----------------- | --------------------------------------------------------------------- | ------------------------------------- |
+| Phase 0 (Prep)    | `task(category="quick", load_skills=["git-master"], background=true)` | Agent runs operations directly inline |
+| Phase 2 (Execute) | `task(session_id=..., load_skills=["git-master"])`                    | Agent runs operations directly inline |
+| PR creation       | `task(category="quick", load_skills=["git-master"])`                  | Agent runs operations directly inline |
+| User interaction  | `question()`                                                          | `vscode_askQuestions()`               |
+| File write        | `write()`                                                             | `create_file()`                       |
+| Todo tracking     | `todowrite()`                                                         | `manage_todo_list()`                  |
+| Background tasks  | `run_in_background=true`                                              | N/A — all operations are sequential   |
+| Session chaining  | `session_id` preserves context across subagents                       | N/A — context stays in main agent     |
+
+#### How to Read the Platform Docs
+
+The `task()` prompt templates in `platforms/bitbucket.md` and `platforms/github.md` serve **dual purposes**:
+
+- **opencode**: Main agent copies the template into a `task()` call → subagent executes it
+- **VS Code Copilot**: Main agent reads the `[INSTRUCTIONS]` section and executes those steps directly — ignore the `task()` wrapper, `[OUTPUT FORMAT]`, and `[MUST NOT DO]` sections
+
+The `[INSTRUCTIONS]` inside each prompt template are the **canonical steps** for that phase, regardless of environment.
+
+> **Platform-specific details:** See `platforms/bitbucket.md` or `platforms/github.md` for the exact `task()` prompt templates and tool-specific patterns.
+
 ### Commit/PR Message Review (Compressed Interaction Model)
 
 The agent MUST show commit message AND PR details to the user before executing — but combines them into a **single confirmation** instead of separate gates.
 
 **Principle:** User reviews everything upfront in ONE interaction, then the pipeline executes automatically.
 
-1. **Prepare everything first** — generate commit message, validate it, prepare PR title/summary
-2. **Show combined preview** — commit message + PR description in one view
+1. **Prep Subagent prepares everything** — generate commit message, validate it, prepare PR title/summary
+2. **Main agent shows combined preview** — commit message + PR description in one view (from Prep output)
 3. **Single confirmation** — user approves/edits/cancels in one interaction
-4. **Execute pipeline** — commit → push → PR creation runs automatically after approval
+4. **Execute Subagent runs pipeline** — commit → push → PR creation runs automatically after approval
 
 ```
-# ✅ Agent shows combined preview, single confirmation
+# ✅ Prep Subagent returns structured summary → Main agent shows preview → single confirmation
 "Preview:
   Commit: feat(auth): add login form with validation
   PR: feat/auth-login → development
   PR Title: feat(auth): add login form with validation
 Confirm all? / Edit / Cancel"
 
-# ❌ Agent asks 4 separate questions: "commit?" → "push?" → "PR?" → "confirm PR?"
+# ❌ Main agent runs git diff, processes output, asks 4 separate questions
 ```
 
 > **Platform-specific details:** See `platforms/bitbucket.md` or `platforms/github.md` for the exact interaction flow with preview files and tool-specific confirmation patterns.
@@ -502,15 +556,16 @@ If new changes arise after a commit (e.g., fixing a review comment, addressing l
 
 1. **Assess** — what changed and why
 2. **Stage selectively** — only the new/modified files
-3. **Re-enter the optimized workflow** — Phase 0 (prepare) → Interaction 1 (confirm) → Phase 2 (execute)
+3. **Fire a new Prep Subagent** — fresh session, analyze only the new changes
+4. **Continue through Interaction 1 → Execute Subagent → Interaction 2** as normal
 
-Do not skip phases or batch leftover changes silently. Each round of changes follows the same discipline.
+Do not skip phases or batch leftover changes silently. Each round of changes gets its own Prep → Execute cycle. Do NOT reuse a previous session_id from a completed workflow — start fresh.
 
 ### Session End Gate
 
 **MANDATORY:** After completing the commit/PR workflow (or any task), the agent MUST ask the user about the next action using the environment's question/ask tool. Derive context-appropriate options from the current state and always include a "pause/stop" option.
 
-This is handled by **Interaction 2** in the optimized workflow — which combines result reporting with next-step options. No separate "session end" prompt is needed if Interaction 2 already covers it.
+This is handled by **Interaction 2** in the subagent-delegated workflow — which combines result reporting with next-step options. No separate "session end" prompt is needed if Interaction 2 already covers it.
 
 ### MCP Tool Pitfalls
 

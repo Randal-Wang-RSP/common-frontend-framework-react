@@ -6,11 +6,11 @@ Platform-specific scripted commit and PR workflow for Bitbucket-hosted repositor
 >
 > **Prerequisite:** Read the main [SKILL.md](../SKILL.md) first for generic Git Flow rules,
 > branch naming, merge strategy, and AI agent behavior rules. This file covers only the
-> **Bitbucket-specific scripted workflow** — the optimized 4-phase commit/PR automation.
+> **Bitbucket-specific scripted workflow** — the subagent-delegated commit/PR automation.
 
 ---
 
-## ✅ [TASKS] Optimized Script-Powered Workflow
+## ✅ [TASKS] Subagent-Delegated Workflow
 
 > ### 🚨 HARD STOP — READ BEFORE EXECUTING ANY GIT COMMAND
 >
@@ -22,73 +22,117 @@ Platform-specific scripted commit and PR workflow for Bitbucket-hosted repositor
 
 ### Design Principles
 
-This workflow optimizes the commit→push→PR→review pipeline by:
+This workflow delegates heavy git operations to specialized subagents, keeping the main agent's context minimal:
 
-1. **Parallel preparation** — parse diff, read instructions, detect branch simultaneously
-2. **Compressed interactions** — 2 user confirmations instead of 6, without sacrificing safety
-3. **Pipeline execution** — push, PR prep, and review run in parallel where possible
-4. **Single-pass confirmation** — user sees everything upfront and decides once
+1. **Subagent isolation** — Diff parsing, message generation, and pipeline execution run in subagent context windows, not the main agent
+2. **Session continuity** — Execute Subagent reuses Prep Subagent's `session_id`, preserving full context without re-reading files
+3. **Compressed interactions** — 2 user confirmations (unchanged), handled by main agent only
+4. **Token efficiency** — Main agent sees only structured summaries (~300 tokens), not raw git output (~3000+ tokens)
 
 ```
-Phase 0 (auto, parallel) → Interaction 1 (confirm all) → Phase 2 (auto, pipeline) → Interaction 2 (results + next)
+Prep Subagent (background) → Main Agent: Interaction 1 → Execute Subagent (sync) → Main Agent: Interaction 2
+                                                                                 └→ PR Subagent (optional, sync)
 ```
 
 ---
 
-### Phase 0: Automatic Preparation (Zero Interaction)
+### Subagent Architecture
 
-**Initialize todo list immediately:**
+| Role        | Category | Skills       | Run Mode                  | Purpose                                                   |
+| ----------- | -------- | ------------ | ------------------------- | --------------------------------------------------------- |
+| **Prep**    | `quick`  | `git-master` | `run_in_background=true`  | Analyze changes, draft commit message, prepare PR content |
+| **Execute** | —        | `git-master` | `run_in_background=false` | Stage, commit, push, handle hook failures                 |
+| **PR**      | `quick`  | `git-master` | `run_in_background=false` | Create PR, optionally post review comments                |
+
+**Session chaining:** Execute reuses Prep's `session_id` — no `category` needed, full context preserved.
+
+### Environment Adaptation
+
+| Phase          | opencode (Sisyphus)                                               | VS Code Copilot                          |
+| -------------- | ----------------------------------------------------------------- | ---------------------------------------- |
+| Phase 0 (Prep) | `task(category="quick", load_skills=["git-master"])` — background | Agent runs the `[INSTRUCTIONS]` directly |
+| Interaction 1  | `question()`                                                      | `vscode_askQuestions()`                  |
+| Phase 2 (Exec) | `task(session_id=..., load_skills=["git-master"])` — sync         | Agent runs the `[INSTRUCTIONS]` directly |
+| PR creation    | `task(category="quick", load_skills=["git-master"])` — sync       | Agent runs script calls directly         |
+| Interaction 2  | `question()`                                                      | `vscode_askQuestions()`                  |
+| Preview file   | `write()`                                                         | `create_file()`                          |
+| Todo tracking  | `todowrite()`                                                     | `manage_todo_list()`                     |
+
+**VS Code Copilot agents:** Ignore `task()` wrappers — read the `[INSTRUCTIONS]` section inside each prompt template and execute those steps directly. All phases, confirmations, and error recovery apply identically.
+
+---
+
+### Phase 0: Prep Subagent
+
+**Main agent fires a background subagent to analyze changes and prepare everything:**
 
 ```typescript
-manage_todo_list([
-  { id: 1, title: "Prepare: parse diff + read instructions", status: "in-progress" },
-  { id: 2, title: "Generate and validate commit message", status: "not-started" },
-  { id: 3, title: "User confirmation", status: "not-started" },
-  { id: 4, title: "Execute: commit + push", status: "not-started" },
-  { id: 5, title: "Create PR (if requested)", status: "not-started" },
-  { id: 6, title: "Code review (if requested)", status: "not-started" },
-  { id: 7, title: "Results and next steps", status: "not-started" },
-])
+const prepTask = task(
+  category: "quick",
+  load_skills: ["git-master"],
+  run_in_background: true,
+  description: "Git prep: analyze and draft commit",
+  prompt: `
+    [CONTEXT]
+    Workspace: ${workspaceRoot}
+    Scripts: .github/skills/git-workflow/scripts/
+    Commit rules: .github/.copilot-commit-message-instructions.md
+
+    [GOAL]
+    Analyze staged git changes and produce everything needed for user confirmation:
+    commit message, PR content, and a concise diff summary.
+
+    [INSTRUCTIONS]
+    Run these in parallel:
+    1. node .github/skills/git-workflow/scripts/parse-diff.js --staged
+    2. Read .github/.copilot-commit-message-instructions.md
+    3. git rev-parse --abbrev-ref HEAD → infer target branch
+       (feat/* | fix/* → development, hotfix/* | release/* → main)
+
+    Then sequentially:
+    4. Generate commit message as JSON {title, paragraphs} following the content rules
+    5. Validate: echo '<json>' | node .github/skills/git-workflow/scripts/format-commit.js
+       - If invalid → auto-fix and retry (never surface failures to main agent)
+    6. Collect commits: git log origin/<target>..HEAD --format="%s" --reverse
+    7. Generate PR title + summary (follow SKILL.md § PR Convention)
+
+    [OUTPUT FORMAT]
+    Return a structured response with these clearly labeled sections:
+    - DIFF_SUMMARY: e.g. "3 files changed: 2 modified, 1 added (+45 -12 lines)"
+    - STAGED_FILES: list of file paths
+    - COMMIT_MESSAGE: full validated message text
+    - MESSAGE_FILE_PATH: path written by format-commit.js
+    - BRANCH: current branch name
+    - TARGET: inferred target branch
+    - PR_TITLE: conventional commits format
+    - PR_SUMMARY: full PR description following the template
+    - COMMIT_LOG: commits since divergence from target
+
+    [MUST NOT DO]
+    - Do NOT run git add, git commit, or git push
+    - Do NOT interact with the user
+    - Do NOT create files outside .tmp/
+  `
+)
+// Store: prepTask.task_id, prepTask.session_id
+// Continue with non-overlapping work or end response to wait for completion
 ```
 
-**Run these three operations in parallel:**
+**When Prep completes**, collect results:
 
-```bash
-# 1. Parse staged changes
-node .github/skills/git-workflow/scripts/parse-diff.js --staged
-
-# 2. Read commit message content rules (AI reads this file)
-# .github/.copilot-commit-message-instructions.md
-
-# 3. Detect current branch and infer target
-git rev-parse --abbrev-ref HEAD
-# feat/* or fix/* → target = development
-# hotfix/* or release/* → target = main
+```typescript
+const prepResult = background_output(task_id: prepTask.task_id)
+// Extract structured sections: DIFF_SUMMARY, COMMIT_MESSAGE, PR_TITLE, etc.
 ```
 
-**Then immediately** (still Phase 0, no user interaction):
-
-1. AI generates commit message as JSON `{title, paragraphs}` following the content rules
-2. Pipe to `format-commit.js` for validation:
-   ```bash
-   echo '<json>' | node .github/skills/git-workflow/scripts/format-commit.js
-   ```
-3. If validation fails → fix and retry (user never sees the failure)
-4. Collect ALL commits for PR description (if applicable):
-   ```bash
-   git log origin/<target>..HEAD --format="%s" --reverse
-   ```
-5. AI generates PR title + summary (following the rules in SKILL.md § PR Convention)
-
-**Mark todo id:1 and id:2 as `completed`** once message is validated and PR content prepared.
-
-> **Key insight:** By the time the user sees anything, ALL preparation is done. No waiting.
+> **Key insight:** By the time the user sees anything, ALL preparation is done. The main agent
+> never processes raw diff output — only the Prep Subagent's structured summary.
 
 ---
 
-### Interaction 1: Combined Confirmation (Replaces 4 Separate Gates)
+### Interaction 1: Combined Confirmation (Main Agent)
 
-**Mark todo id:3 as `in-progress`.**
+**Main agent presents the Prep Subagent's summary to the user.**
 
 #### Preview File
 
@@ -100,7 +144,7 @@ git rev-parse --abbrev-ref HEAD
 mkdir -p .tmp
 ```
 
-Write a combined preview file:
+Write a combined preview file from the Prep Subagent's output:
 
 ````typescript
 const previewPath = `<absoluteWorkspaceRoot>/.tmp/commit-preview.md`
@@ -112,23 +156,22 @@ create_file(
     ``,
     `## Diff Summary`,
     ``,
-    `${diffStats}`, // e.g., "3 files changed: 2 modified, 1 added (+45 -12 lines)"
+    prepResult.DIFF_SUMMARY,
     ``,
     `## Commit Message`,
     ``,
     "```",
-    commitMessageText, // full formatted message from format-commit.js
+    prepResult.COMMIT_MESSAGE,
     "```",
     ``,
     `## Pull Request`,
     ``,
-    `**Branch**: ${source} → ${target}`,
-    `**Title**: ${prTitle}`,
-    `**Commits**: ${commitCount} commit(s)`,
+    `**Branch**: ${prepResult.BRANCH} → ${prepResult.TARGET}`,
+    `**Title**: ${prepResult.PR_TITLE}`,
     ``,
     `### Description`,
     ``,
-    prDescription, // full PR description from Step 6b logic
+    prepResult.PR_SUMMARY,
   ].join("\n")
 )
 ````
@@ -158,12 +201,12 @@ ask_questions([
 
 **Handling responses:**
 
-| Selection             | Action                                                                                                 |
-| --------------------- | ------------------------------------------------------------------------------------------------------ |
-| `✅ 全部执行`         | Mark id:3 `completed`. Delete preview. Proceed to Phase 2 with PR creation.                            |
-| `✅ 仅 commit + push` | Mark id:3 `completed`. Delete preview. Proceed to Phase 2 without PR. Mark id:5 `completed` (skipped). |
-| `✏️ 修改`             | Delete preview. Return to Phase 0 message generation. Keep id:3 `in-progress`.                         |
-| `❌ 取消`             | Delete preview. Mark all remaining todos `completed`. **STOP.**                                        |
+| Selection             | Action                                                              |
+| --------------------- | ------------------------------------------------------------------- |
+| `✅ 全部执行`         | Delete preview. Proceed to Execute Subagent with `createPR: true`.  |
+| `✅ 仅 commit + push` | Delete preview. Proceed to Execute Subagent with `createPR: false`. |
+| `✏️ 修改`             | Delete preview. Re-fire Prep Subagent (new task, new session).      |
+| `❌ 取消`             | Delete preview. **STOP.** End workflow.                             |
 
 ```bash
 # Always clean up preview file after interaction
@@ -172,108 +215,136 @@ rm -f "${previewPath}"
 
 ---
 
-### Phase 2: Automatic Pipeline (Zero Interaction)
+### Phase 2: Execute Subagent
 
-Everything here runs automatically after Interaction 1 approval.
+**Main agent delegates commit + push to the Execute Subagent, reusing Prep's session:**
 
-#### Step A: Commit + Push
+```typescript
+const execTask = task(
+  session_id: prepTask.session_id,  // Reuses Prep's full context (diff, files, message)
+  load_skills: ["git-master"],
+  run_in_background: false,         // Sync — main agent waits for result
+  description: "Git execute: commit and push",
+  prompt: `
+    [CONTEXT]
+    User confirmed: commit + push.
+    Commit message file: (use MESSAGE_FILE_PATH from your earlier output)
+    All staged files should be committed.
 
-**Mark todo id:4 as `in-progress`.**
+    [INSTRUCTIONS]
+    Execute the commit pipeline:
+    1. Run:
+       node .github/skills/git-workflow/scripts/git-workflow.js \
+         --all \
+         --message-file <MESSAGE_FILE_PATH> \
+         --push
 
-```bash
-node .github/skills/git-workflow/scripts/git-workflow.js \
-  --all \
-  --message-file <path-from-format-commit> \
-  --push
+    2. If commit fails (commitlint / lint-staged):
+       - Analyze the specific error
+       - Auto-fix if possible (lint/format issues)
+       - Retry once
+       - If still failing, report the error clearly
+
+    3. If push fails (conflict):
+       - Report "Push failed: remote has new commits"
+       - Do NOT auto-resolve — report for main agent to handle
+
+    [OUTPUT FORMAT]
+    Return clearly labeled:
+    - STATUS: success | commit_failed | push_failed
+    - COMMIT_SHA: short hash (if successful)
+    - BRANCH: branch that was pushed
+    - ERROR: error details (if failed)
+    - HOOK_OUTPUT: any lint-staged or commitlint output (if relevant)
+
+    [MUST NOT DO]
+    - Do NOT interact with the user
+    - Do NOT create PRs
+    - Do NOT force push
+    - Do NOT amend commits
+  `
+)
 ```
 
-**Error handling:**
+**Main agent evaluates result:**
 
-- **Commit fails** (commitlint, lint-staged): Report error, offer retry → return to Phase 0.
-- **Push fails** (conflict, auth): Report error, suggest resolution.
-
-On success: **Mark id:4 as `completed`.**
-
-#### Step B: Create PR (parallel with Step C if applicable)
-
-**Skip if user chose "仅 commit + push".** Mark id:5 `completed` and jump to Step C.
-
-**Mark todo id:5 as `in-progress`.**
-
-> **Parallel opportunity:** PR title + summary were already generated in Phase 0.
-> No additional computation needed — just call the API.
-
-```bash
-node .github/skills/git-workflow/scripts/create-pr.js \
-  --target <development|main> \
-  --title "<title-from-phase-0>" \
-  --summary "<summary-from-phase-0>" \
-  [--pr-id <n>]   # omit for new PR; add to update existing
-```
-
-**Handling `create-pr.js` output:**
-
-| `success` | Field         | Action                                                        |
-| --------- | ------------- | ------------------------------------------------------------- |
-| `true`    | `url`         | Record PR URL for Interaction 2                               |
-| `false`   | `fallbackUrl` | Credentials not configured → include `fallbackUrl` in results |
-| `false`   | `error` only  | Record error for Interaction 2                                |
-
-On completion: **Mark id:5 as `completed`.**
-
-#### Step C: Code Review (parallel with Step B)
-
-**Mark todo id:6 as `in-progress`.**
-
-> **Parallel opportunity:** Code review analyzes the local diff, not the PR.
-> It can start as soon as commit succeeds — no need to wait for PR creation.
-
-Run the code review workflow:
-
-1. Read `.github/skills/requesting-code-review/SKILL.md`
-2. Follow the skill instructions to analyze the diff
-3. Collect findings (severity: Critical / Important / Suggestion)
-
-If a PR was created (Step B succeeded), post findings as PR comments:
-
-```bash
-# Inline comments
-node .github/skills/git-workflow/scripts/add-pr-comment.js \
-  --pr-id <pr-number> \
-  --signature "🤖 *AI Review — GitHub Copilot*" \
-  --data '[
-    { "file": "src/path/to/file.ts", "line": 10, "comment": "**[Critical]** Issue..." },
-    { "file": "src/path/to/other.ts", "line": 25, "comment": "**[Suggestion]** Consider..." }
-  ]'
-
-# General summary
-node .github/skills/git-workflow/scripts/add-pr-comment.js \
-  --pr-id <pr-number> \
-  --signature "🤖 *AI Review — GitHub Copilot*" \
-  --comment "## 🔍 Code Review Summary\n\n<markdown summary>"
-```
-
-On completion: **Mark id:6 as `completed`.**
-
-> **Note:** If code review was not requested or takes too long, skip and report "review available on demand" in Interaction 2.
+- `STATUS: success` → Continue to PR Subagent (if requested) or Interaction 2
+- `STATUS: commit_failed` → Report error, offer retry / return to Phase 0 / cancel
+- `STATUS: push_failed` → Report error, offer pull-rebase-retry / cancel
 
 ---
 
-### Interaction 2: Results + Next Steps (Replaces 3 Separate Gates)
+### PR Subagent (Optional)
 
-**Mark todo id:7 as `in-progress`.**
+**Skipped if user chose "仅 commit + push".**
 
-Present a unified results summary in the chat:
+```typescript
+const prTask = task(
+  category: "quick",
+  load_skills: ["git-master"],
+  run_in_background: false,
+  description: "Create Bitbucket PR",
+  prompt: `
+    [CONTEXT]
+    Repository: Bitbucket-hosted
+    Source branch: ${prepResult.BRANCH}
+    Target branch: ${prepResult.TARGET}
+    PR title: ${prepResult.PR_TITLE}
+    PR summary (use as --summary argument):
+    ${prepResult.PR_SUMMARY}
+
+    Scripts: .github/skills/git-workflow/scripts/
+
+    [INSTRUCTIONS]
+    1. Create the PR:
+       node .github/skills/git-workflow/scripts/create-pr.js \
+         --target ${prepResult.TARGET} \
+         --title "${prepResult.PR_TITLE}" \
+         --summary "${prepResult.PR_SUMMARY}"
+
+    2. Handle create-pr.js output:
+       - success=true → record the URL
+       - success=false + fallbackUrl → record fallback URL
+       - success=false + error only → record error message
+
+    3. (Optional) If code review was requested:
+       - Read .github/skills/requesting-code-review/SKILL.md
+       - Analyze the diff following that skill's instructions
+       - Post findings as PR comments:
+         node .github/skills/git-workflow/scripts/add-pr-comment.js \
+           --pr-id <pr-number> \
+           --signature "🤖 *AI Review*" \
+           --data '<JSON findings array>'
+
+    [OUTPUT FORMAT]
+    - PR_STATUS: success | failed
+    - PR_URL: Bitbucket PR URL (if successful)
+    - FALLBACK_URL: manual creation URL (if API failed)
+    - REVIEW_SUMMARY: findings summary (if review was performed)
+
+    [MUST NOT DO]
+    - Do NOT modify any source code
+    - Do NOT make additional commits
+    - Do NOT interact with the user
+  `
+)
+```
+
+---
+
+### Interaction 2: Results + Next Steps (Main Agent)
+
+Present a unified results summary assembled from subagent outputs:
 
 ```markdown
 ## Results
 
-| Step   | Status | Detail                                           |
-| ------ | ------ | ------------------------------------------------ |
-| Commit | ✅     | `abc1234` — feat(auth): add login form           |
-| Push   | ✅     | → origin/feat/auth-login                         |
-| PR     | ✅     | #42 — https://bitbucket.org/.../pull-requests/42 |
-| Review | 🔍     | 0 Critical, 1 Important, 2 Suggestions           |
+| Step   | Status | Detail                                      |
+| ------ | ------ | ------------------------------------------- |
+| Commit | ✅     | `${execResult.COMMIT_SHA}` — ${commitTitle} |
+| Push   | ✅     | → origin/${prepResult.BRANCH}               |
+| PR     | ✅     | #42 — ${prResult.PR_URL}                    |
+| Review | 🔍     | ${prResult.REVIEW_SUMMARY}                  |
 ```
 
 Then ask about next steps:
@@ -299,11 +370,9 @@ ask_questions([
 | Selection             | Action                                                               |
 | --------------------- | -------------------------------------------------------------------- |
 | `📋 查看详情`         | Display full review findings in chat. Re-ask with remaining options. |
-| `🔧 修复问题`         | Fix findings → re-enter workflow from Phase 0 for the fix commit.    |
+| `🔧 修复问题`         | Fix findings → re-enter workflow from Phase 0 (new Prep Subagent).   |
 | `🧹 合并后清理`       | Execute post-merge cleanup (see below).                              |
-| `📝 继续` / `⏸️ 暂停` | Mark id:7 `completed`. End workflow.                                 |
-
-**Mark id:7 as `completed`** after user selects any terminal option.
+| `📝 继续` / `⏸️ 暂停` | End workflow.                                                        |
 
 ---
 
@@ -342,8 +411,7 @@ Report: `✅ 已切换到 development 并更新到最新 (${shortHash})。本地
 
 After the workflow ends (regardless of which phase):
 
-1. **Clear the todo list** (empty array)
-2. **Trigger the universal session end gate** from `copilot-instructions.md`
+1. **Trigger the universal session end gate** from `copilot-instructions.md`
    - Derive options from current session context
    - This is MANDATORY — the commit workflow does NOT own the session end
 
@@ -357,52 +425,61 @@ After the workflow ends (regardless of which phase):
 ### Commit Failure (commitlint / lint-staged)
 
 ```
-Phase 2 Step A fails → Report specific error → Offer:
-  ✏️ "Auto-fix and retry" (for lint issues)
-  🔙 "Return to Phase 0" (for message issues)
+Execute Subagent returns STATUS: commit_failed
+→ Main agent reports the specific error to the user
+→ Offer:
+  ✏️ "Auto-fix and retry" → re-fire Execute Subagent with session_id + fix instructions
+  🔙 "Return to Phase 0" → fire new Prep Subagent
   ❌ "Cancel workflow"
 ```
 
 ### Push Failure (conflict / auth)
 
 ```
-Phase 2 Step A push fails → Report error → Offer:
-  🔄 "Pull and rebase, then retry"
+Execute Subagent returns STATUS: push_failed
+→ Main agent reports error to the user
+→ Offer:
+  🔄 "Pull and rebase, then retry" → main agent runs git pull --rebase, then re-fire Execute
   ❌ "Cancel (commit preserved locally)"
 ```
 
 ### PR Creation Failure (auth / API)
 
 ```
-Phase 2 Step B fails → Still report commit/push success in Interaction 2
-  → Include fallback URL for manual PR creation
-  → Workflow is NOT blocked — PR is optional
+PR Subagent returns PR_STATUS: failed
+→ Still report commit/push success in Interaction 2
+→ Include FALLBACK_URL for manual PR creation
+→ Workflow is NOT blocked — PR is optional
 ```
 
 ---
 
 ## 💡 [EXAMPLES] Usage Patterns
 
-### Example 1: Full Flow (commit + push + PR + review)
+### Example 1: Full Flow (commit + push + PR)
 
 ```
-Phase 0 (auto):
-  parse-diff → "3 files: 2 modified, 1 added (+45 -12 lines)"
-  read instructions + generate message + validate → valid ✅
-  detect branch: feat/auth-login → target: development
-  prepare PR title + summary
+Main Agent fires Prep Subagent (background):
+  task(category="quick", load_skills=["git-master"], run_in_background=true, ...)
+  → Prep runs: parse-diff, read instructions, generate message, validate, prepare PR content
+  → Returns: DIFF_SUMMARY, COMMIT_MESSAGE, PR_TITLE, PR_SUMMARY, etc.
 
-Interaction 1:
-  User sees preview with diff summary + commit message + PR description
+Main Agent: Interaction 1
+  Writes preview from Prep output → shows to user
   User selects: "✅ 全部执行 (commit + push + PR)"
 
-Phase 2 (auto, pipeline):
-  git-workflow.js → commit abc1234 + push ✅
-  ├─ (parallel) create-pr.js → PR #42 ✅
-  └─ (parallel) code review → 1 Important, 2 Suggestions
+Main Agent fires Execute Subagent (sync, session_id from Prep):
+  task(session_id=prepTask.session_id, load_skills=["git-master"], run_in_background=false, ...)
+  → Execute runs: git-workflow.js --all --message-file --push
+  → Returns: STATUS=success, COMMIT_SHA=abc1234
 
-Interaction 2:
-  Shows: commit ✅, push ✅, PR #42 ✅, review 🔍
+Main Agent fires PR Subagent (sync):
+  task(category="quick", load_skills=["git-master"], run_in_background=false, ...)
+  → PR runs: create-pr.js → PR #42 created
+  → Returns: PR_STATUS=success, PR_URL=https://bitbucket.org/.../42
+
+Main Agent: Interaction 2
+  Shows: Commit ✅ abc1234, Push ✅, PR #42 ✅
   User selects: "📝 继续其他工作"
   Workflow ends ✅
 ```
@@ -410,64 +487,45 @@ Interaction 2:
 ### Example 2: Commit Only (no PR)
 
 ```
-Phase 0 (auto):
-  parse + generate + validate → valid ✅
-
-Interaction 1:
-  User selects: "✅ 仅 commit + push (不创建 PR)"
-
-Phase 2 (auto):
-  git-workflow.js → commit def5678 + push ✅
-  PR step: skipped
-  Review: skipped
-
-Interaction 2:
-  Shows: commit ✅, push ✅
-  User selects: "⏸️ 暂停"
-  Workflow ends ✅
+Prep Subagent (background) → returns summary
+Interaction 1 → User selects: "✅ 仅 commit + push"
+Execute Subagent (sync) → commit def5678 + push ✅
+PR Subagent: skipped
+Interaction 2 → Shows: Commit ✅, Push ✅ → User: "⏸️ 暂停"
 ```
 
-### Example 3: Validation Failure Recovery
+### Example 3: Validation Failure Recovery (invisible to user)
 
 ```
-Phase 0 (auto):
+Prep Subagent runs:
   generate message → format-commit.js → { valid: false, errors: ["Body line exceeds 72 chars"] }
-  Auto-fix: shorten line → retry → { valid: true } ✅
-  (User never sees the failure)
-
-Interaction 1:
-  User sees clean preview → "✅ 全部执行"
-  Proceeds normally
+  Auto-fix internally → retry → { valid: true } ✅
+  Returns clean result to main agent (user never sees the failure)
 ```
 
-### Example 4: Push Conflict Recovery
+### Example 4: Hook Failure Recovery
 
 ```
-Phase 0 + Interaction 1: normal flow
+Execute Subagent runs:
+  git-workflow.js → commit FAILED (lint-staged found issues)
+  Auto-fix lint errors → retry once → commit ✅, push ✅
+  Returns: STATUS=success (if retry worked)
+  OR: STATUS=commit_failed, ERROR="..." (if retry also failed)
 
-Phase 2:
-  git-workflow.js → commit ✅, push FAILED (conflict)
-
-  Agent reports: "Push 失败：远程有新提交。"
-  Offers: "🔄 Pull rebase and retry" / "❌ Cancel"
-
-  User: "🔄 retry"
-  git pull --rebase origin development
-  git push → ✅
-
-Interaction 2: normal results display
+Main agent receives failure → offers user: retry / Phase 0 / cancel
 ```
 
 ---
 
 ## 📊 Performance Comparison
 
-| Metric                 | Before (9-step) | After (4-phase)     | Improvement |
-| ---------------------- | --------------- | ------------------- | ----------- |
-| User interactions      | 6               | 2                   | **-67%**    |
-| Sequential wait points | 9               | 4                   | **-56%**    |
-| Parallel operations    | 0               | 3 groups            | ∞           |
-| Estimated wall time    | 60-120s         | 15-30s + 2 confirms | **~60-75%** |
+| Metric                         | Direct (4-phase)  | Subagent-Delegated            | Improvement        |
+| ------------------------------ | ----------------- | ----------------------------- | ------------------ |
+| User interactions              | 2                 | 2                             | Same               |
+| Main agent context (per cycle) | ~3000-5000 tokens | ~300-500 tokens               | **~90% reduction** |
+| Failure handling               | Inline            | Subagent-internal             | Cleaner            |
+| Session chaining               | N/A               | Prep → Execute via session_id | Context reuse      |
+| Parallel potential             | Limited           | Prep runs in background       | Better throughput  |
 
 ---
 

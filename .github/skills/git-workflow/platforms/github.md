@@ -6,32 +6,93 @@ Platform-specific PR operations for GitHub-hosted repositories.
 >
 > **Prerequisite:** Read the main [SKILL.md](../SKILL.md) first for generic Git Flow rules,
 > branch naming, merge strategy, and AI agent behavior rules. This file covers only the
-> **GitHub-specific workflow** — using MCP tools or `gh` CLI for PR operations.
+> **GitHub-specific workflow** — using subagent delegation with `gh` CLI or MCP tools.
 
 ---
 
-## Optimized Workflow (4-Phase Model)
+## Subagent-Delegated Workflow
 
-This workflow follows the same compressed interaction model as the Bitbucket workflow.
-See [SKILL.md](../SKILL.md) § "Commit/PR Message Review" for the core principle.
+This workflow follows the same subagent architecture as the Bitbucket workflow.
+See [SKILL.md](../SKILL.md) § "Subagent Orchestration Model" for the core principle.
 
 ```
-Phase 0 (auto, parallel) → Interaction 1 (confirm all) → Phase 2 (auto, pipeline) → Interaction 2 (results + next)
+Prep Subagent (background) → Main Agent: Interaction 1 → Execute Subagent (sync) → Main Agent: Interaction 2
+                                                                                 └→ PR Subagent (optional, sync)
 ```
 
-### Phase 0: Automatic Preparation
+### Subagent Architecture
 
-Run in parallel:
+| Role        | Category | Skills       | Run Mode                  | Purpose                                           |
+| ----------- | -------- | ------------ | ------------------------- | ------------------------------------------------- |
+| **Prep**    | `quick`  | `git-master` | `run_in_background=true`  | Analyze changes, draft commit message, prepare PR |
+| **Execute** | —        | `git-master` | `run_in_background=false` | Stage, commit, push, handle hook failures         |
+| **PR**      | `quick`  | `git-master` | `run_in_background=false` | Create PR via `gh` CLI or MCP, post review        |
 
-1. **Analyze staged changes** — `git diff --cached --stat`
-2. **Read commit instructions** — `.github/.copilot-commit-message-instructions.md`
-3. **Detect branch + target** — `git rev-parse --abbrev-ref HEAD` → infer target branch
-4. **Generate + validate commit message** — AI generates, pipe to `format-commit.js` if available
-5. **Prepare PR content** — collect commits via `git log origin/<target>..HEAD --format="%s" --reverse`, generate title + summary
+**Session chaining:** Execute reuses Prep's `session_id` for context continuity.
 
-### Interaction 1: Combined Confirmation
+### Environment Adaptation
 
-Show the user a single preview containing:
+| Phase          | opencode (Sisyphus)                                               | VS Code Copilot                          |
+| -------------- | ----------------------------------------------------------------- | ---------------------------------------- |
+| Phase 0 (Prep) | `task(category="quick", load_skills=["git-master"])` — background | Agent runs the `[INSTRUCTIONS]` directly |
+| Interaction 1  | `question()`                                                      | `vscode_askQuestions()`                  |
+| Phase 2 (Exec) | `task(session_id=..., load_skills=["git-master"])` — sync         | Agent runs the `[INSTRUCTIONS]` directly |
+| PR creation    | `task(category="quick", load_skills=["git-master"])` — sync       | Agent runs `gh` CLI / MCP tools directly |
+| Interaction 2  | `question()`                                                      | `vscode_askQuestions()`                  |
+
+**VS Code Copilot agents:** Ignore `task()` wrappers — read the `[INSTRUCTIONS]` section inside each prompt template and execute those steps directly.
+
+---
+
+### Phase 0: Prep Subagent
+
+```typescript
+const prepTask = task(
+  category: "quick",
+  load_skills: ["git-master"],
+  run_in_background: true,
+  description: "Git prep: analyze and draft commit",
+  prompt: `
+    [CONTEXT]
+    Workspace: ${workspaceRoot}
+    Platform: GitHub
+    Commit rules: .github/.copilot-commit-message-instructions.md
+
+    [GOAL]
+    Analyze staged git changes and produce everything needed for user confirmation.
+
+    [INSTRUCTIONS]
+    Run in parallel:
+    1. git diff --cached --stat (analyze staged changes)
+    2. Read .github/.copilot-commit-message-instructions.md
+    3. git rev-parse --abbrev-ref HEAD → infer target branch
+
+    Then sequentially:
+    4. Generate commit message following content rules
+    5. If .github/skills/git-workflow/scripts/format-commit.js exists, validate through it
+    6. Collect commits: git log origin/<target>..HEAD --format="%s" --reverse
+    7. Generate PR title + summary (follow SKILL.md § PR Convention)
+
+    [OUTPUT FORMAT]
+    - DIFF_SUMMARY: files changed, lines added/removed
+    - STAGED_FILES: list of file paths
+    - COMMIT_MESSAGE: full validated message
+    - BRANCH: current branch name
+    - TARGET: inferred target branch
+    - PR_TITLE: conventional commits format
+    - PR_SUMMARY: full PR description
+    - COMMIT_LOG: commits since divergence
+
+    [MUST NOT DO]
+    - Do NOT run git add, git commit, or git push
+    - Do NOT interact with the user
+  `
+)
+```
+
+### Interaction 1: Combined Confirmation (Main Agent)
+
+Show the user a single preview assembled from Prep Subagent output:
 
 - Diff summary (files changed, lines added/removed)
 - Commit message (full formatted text)
@@ -52,76 +113,110 @@ ask_questions([
 ])
 ```
 
-### Phase 2: Automatic Pipeline
-
-After user approval, execute in sequence (with parallel steps where possible):
-
-#### Step A: Commit + Push
-
-```bash
-git add <files>
-git commit -F <message-file>   # or git commit -m "<message>"
-git push -u origin <branch>
-```
-
-#### Step B: Create PR (parallel with Step C)
-
-Use MCP tools or `gh` CLI:
-
-**Option 1 — MCP Tool:**
+### Phase 2: Execute Subagent
 
 ```typescript
-mcp_github_create_pull_request({
-  owner: "<org-or-user>",
-  repo: "<repo-name>",
-  title: "<type>(<scope>): <description>",
-  body: "<PR description — MUST use real newlines, NOT \\n escapes>",
-  head: "<source-branch>",
-  base: "<target-branch>", // "development" for features, "main" for releases/hotfixes
-})
+const execTask = task(
+  session_id: prepTask.session_id,
+  load_skills: ["git-master"],
+  run_in_background: false,
+  description: "Git execute: commit and push",
+  prompt: `
+    [CONTEXT]
+    User confirmed: commit + push.
+    Use the commit message and staged files from your earlier analysis.
+
+    [INSTRUCTIONS]
+    1. Stage files: git add <files>
+    2. Commit: git commit -F <message-file> (or git commit -m "<message>")
+    3. Push: git push -u origin <branch>
+
+    4. If commit fails (hook rejection):
+       - Analyze error, auto-fix if possible, retry once
+       - If still failing, report clearly
+
+    5. If push fails (conflict):
+       - Report "Push failed: remote has new commits"
+       - Do NOT auto-resolve
+
+    [OUTPUT FORMAT]
+    - STATUS: success | commit_failed | push_failed
+    - COMMIT_SHA: short hash (if successful)
+    - BRANCH: pushed branch name
+    - ERROR: details (if failed)
+
+    [MUST NOT DO]
+    - Do NOT create PRs
+    - Do NOT force push
+    - Do NOT interact with the user
+  `
+)
 ```
 
-**Option 2 — gh CLI:**
+### PR Subagent (Optional)
 
-```bash
-gh pr create \
-  --title "<type>(<scope>): <description>" \
-  --body "$(cat <<'EOF'
-## Summary
-<summary paragraph>
-
-## Changes
-- Change 1
-- Change 2
-
-## Testing
-- How tested
-
-## Checklist
-- [ ] Code follows project conventions
-- [ ] Tests added/updated and passing
-- [ ] No lint or type errors
-- [ ] Branch is up-to-date with target branch
-EOF
-)" \
-  --base <target-branch>
-```
-
-#### Step C: Code Review (parallel with Step B)
-
-Start analyzing the diff for code review while PR creation is in progress.
-Post findings to the PR after it's created:
+**Skipped if user chose "仅 commit + push".**
 
 ```typescript
-mcp_github_add_issue_comment({
-  owner: "<org-or-user>",
-  repo: "<repo-name>",
-  issueNumber: <pr-number>,
-  body: "## 🔍 Code Review Summary\n\n<findings in markdown>"
-})
+const prTask = task(
+  category: "quick",
+  load_skills: ["git-master"],
+  run_in_background: false,
+  description: "Create GitHub PR",
+  prompt: `
+    [CONTEXT]
+    Platform: GitHub
+    Source branch: ${prepResult.BRANCH}
+    Target branch: ${prepResult.TARGET}
+    PR title: ${prepResult.PR_TITLE}
+    PR summary:
+    ${prepResult.PR_SUMMARY}
+
+    [INSTRUCTIONS]
+    Create the PR using one of these methods (in order of preference):
+
+    Option 1 — gh CLI:
+      gh pr create \
+        --title "${prepResult.PR_TITLE}" \
+        --body "$(cat <<'EOF'
+      ${prepResult.PR_SUMMARY}
+      EOF
+      )" \
+        --base ${prepResult.TARGET}
+
+    Option 2 — MCP Tool (if gh CLI unavailable):
+      mcp_github_create_pull_request({
+        owner: "<org-or-user>",
+        repo: "<repo-name>",
+        title: "${prepResult.PR_TITLE}",
+        body: <PR_SUMMARY with REAL newlines, NOT \\n escapes>,
+        head: "${prepResult.BRANCH}",
+        base: "${prepResult.TARGET}",
+      })
+
+    CRITICAL: The body parameter MUST use actual multi-line strings (real newlines),
+    NOT \\n escape sequences. Escaped newlines break markdown rendering.
+
+    (Optional) Post code review if requested:
+      gh pr comment <pr-number> --body "<review findings>"
+      OR: mcp_github_add_issue_comment(...)
+
+    [OUTPUT FORMAT]
+    - PR_STATUS: success | failed
+    - PR_URL: GitHub PR URL (if successful)
+    - PR_NUMBER: PR number
+    - FALLBACK_URL: https://github.com/<owner>/<repo>/compare/<target>...<source>
+    - REVIEW_SUMMARY: findings (if review performed)
+
+    [MUST NOT DO]
+    - Do NOT modify source code
+    - Do NOT make commits
+    - Do NOT interact with the user
+  `
+)
 ```
 
-### Interaction 2: Results + Next Steps
+### Interaction 2: Results + Next Steps (Main Agent)
 
 Present unified results and ask about next actions (same pattern as Bitbucket workflow).
 
@@ -155,15 +250,22 @@ mcp_github_update_pull_request({
 })
 ```
 
+Or via `gh` CLI:
+
+```bash
+gh pr edit <pr-number> --body "<corrected body>"
+```
+
 ---
 
 ## Error Recovery
 
 | Failure              | Action                                                                                            |
 | -------------------- | ------------------------------------------------------------------------------------------------- |
-| Push conflict        | `git pull --rebase origin <target>` → retry push                                                  |
+| Push conflict        | `git pull --rebase origin <target>` → re-fire Execute Subagent                                    |
 | PR creation fails    | Report error, provide manual URL: `https://github.com/<owner>/<repo>/compare/<target>...<source>` |
-| MCP tool unavailable | Fall back to `gh` CLI                                                                             |
+| MCP tool unavailable | Fall back to `gh` CLI (PR Subagent handles this internally)                                       |
+| `gh` auth failure    | Report error, suggest `gh auth login`                                                             |
 
 ---
 
