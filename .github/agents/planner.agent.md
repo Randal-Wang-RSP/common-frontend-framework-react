@@ -52,6 +52,20 @@ Task N: <layer>/<slice-name>
   Depends on: Task X (if applicable)
 ```
 
+**File naming rules — apply these exactly when listing files:**
+
+| Segment   | File type         | Naming pattern                     | Example                   |
+| --------- | ----------------- | ---------------------------------- | ------------------------- |
+| `model/`  | Zustand store     | `use<SliceName>Store.ts`           | `useCounterStore.ts`      |
+| `model/`  | TypeScript types  | `types.ts`                         | `types.ts`                |
+| `api/`    | Query hook        | `use<Resource>Query.ts`            | `useCounterQuery.ts`      |
+| `api/`    | Mutation hook     | `use<Action>Mutation.ts`           | `useIncrementMutation.ts` |
+| `api/`    | Raw API functions | `<slice-name>-api.ts`              | `counter-api.ts`          |
+| `config/` | Query key factory | `query-keys.ts`                    | `query-keys.ts`           |
+| `ui/`     | React component   | `<ComponentName>.tsx` (PascalCase) | `CounterCard.tsx`         |
+| `ui/`     | CSS Module        | `<ComponentName>.module.css`       | `CounterCard.module.css`  |
+| (root)    | Barrel            | `index.ts`                         | `index.ts`                |
+
 Order tasks so that lower-layer slices come first (entities before features, features before pages).
 
 ### Step 4 — Chunking Decision
