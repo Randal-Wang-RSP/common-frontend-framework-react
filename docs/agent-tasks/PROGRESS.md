@@ -13,14 +13,14 @@ defined in `docs/superpowers/plans/`.
 
 ## Phase Overview
 
-| Phase | Scope                                                                                      | Status         | Validated                   |
-| ----- | ------------------------------------------------------------------------------------------ | -------------- | --------------------------- |
-| 1     | `dev.agent.md` + `planner.agent.md` + `fsd-architecture` SKILL + `copilot-instructions.md` | ✅ done        | ✅ Phase 1 checklist passed |
-| 2     | `implementer.agent.md` + `zustand-patterns` SKILL + `react-query-patterns` SKILL           | ✅ done        | ✅ Phase 2 checklist passed |
-| 3     | `tester.agent.md` + `fsd-reviewer.agent.md` + `code-reviewer.agent.md`                     | ⏳ not started | —                           |
-| 4     | `git.agent.md`                                                                             | ⏳ not started | —                           |
-| 5     | `pr-reviewer.agent.md` (placeholder) + `fix.agent.md` + `fix-analyzer.agent.md`            | ⏳ not started | —                           |
-| 6     | File instructions (Tier 2): 5 × `.instructions.md`                                         | ⏳ not started | —                           |
+| Phase | Scope                                                                                      | Status         | Validated                                           |
+| ----- | ------------------------------------------------------------------------------------------ | -------------- | --------------------------------------------------- |
+| 1     | `dev.agent.md` + `planner.agent.md` + `fsd-architecture` SKILL + `copilot-instructions.md` | ✅ done        | ✅ Phase 1 checklist passed                         |
+| 2     | `implementer.agent.md` + `zustand-patterns` SKILL + `react-query-patterns` SKILL           | ✅ done        | ✅ Validated — 1 defect found (planner file naming) |
+| 3     | `tester.agent.md` + `fsd-reviewer.agent.md` + `code-reviewer.agent.md`                     | ⏳ not started | —                                                   |
+| 4     | `git.agent.md`                                                                             | ⏳ not started | —                                                   |
+| 5     | `pr-reviewer.agent.md` (placeholder) + `fix.agent.md` + `fix-analyzer.agent.md`            | ⏳ not started | —                                                   |
+| 6     | File instructions (Tier 2): 5 × `.instructions.md`                                         | ⏳ not started | —                                                   |
 
 ---
 
@@ -49,7 +49,7 @@ defined in `docs/superpowers/plans/`.
 
 **Debug test:** Run `/debug-workflow Phase 2` after implementation.
 
-**Validation checklist** (from `debug-workflow.prompt.md` Phase 2):
+**Validation checklist** (from `debug-workflow.prompt.md` Phase 2, run 2026-04-02):
 
 - [x] Orchestrator injects planner task list into implementer prompt (context passing)
 - [x] Implementer creates correct FSD scaffold (entities/counter/model/ + index.ts)
@@ -57,6 +57,18 @@ defined in `docs/superpowers/plans/`.
 - [x] No `export default`
 - [x] No `any` type
 - [x] Explicit return types on exported functions
+
+**✅ Defect found and fixed:**
+
+> **Planner file naming mismatch.** Planner example outputs `model/counterStore.ts` but the
+> `zustand-patterns` skill naming convention requires `model/use<Name>Store.ts`
+> (e.g., `model/useCounterStore.ts`). Because the planner only loads `fsd-architecture`
+> (not `zustand-patterns`), it never sees the hook naming rule. The implementer's strict
+> "Create ONLY files listed" constraint propagates the wrong filename downstream.
+>
+> **Fix applied:** Added a segment-specific file naming table to `planner.agent.md` Step 3
+> covering all segments (`model/`, `api/`, `config/`, `ui/`, barrel).
+> Commit: `fix(agent-workflow): add file naming rules to planner Step 3`
 
 ---
 
