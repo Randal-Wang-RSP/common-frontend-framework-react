@@ -16,7 +16,7 @@ defined in `docs/superpowers/plans/`.
 | Phase | Scope                                                                                      | Status         | Validated                   |
 | ----- | ------------------------------------------------------------------------------------------ | -------------- | --------------------------- |
 | 1     | `dev.agent.md` + `planner.agent.md` + `fsd-architecture` SKILL + `copilot-instructions.md` | ✅ done        | ✅ Phase 1 checklist passed |
-| 2     | `implementer.agent.md` + `zustand-patterns` SKILL + `react-query-patterns` SKILL           | ✅ done        | —                           |
+| 2     | `implementer.agent.md` + `zustand-patterns` SKILL + `react-query-patterns` SKILL           | ✅ done        | ✅ Phase 2 checklist passed |
 | 3     | `tester.agent.md` + `fsd-reviewer.agent.md` + `code-reviewer.agent.md`                     | ⏳ not started | —                           |
 | 4     | `git.agent.md`                                                                             | ⏳ not started | —                           |
 | 5     | `pr-reviewer.agent.md` (placeholder) + `fix.agent.md` + `fix-analyzer.agent.md`            | ⏳ not started | —                           |
@@ -51,12 +51,12 @@ defined in `docs/superpowers/plans/`.
 
 **Validation checklist** (from `debug-workflow.prompt.md` Phase 2):
 
-- [ ] Orchestrator injects planner task list into implementer prompt (context passing)
-- [ ] Implementer creates correct FSD scaffold (entities/counter/model/ + index.ts)
-- [ ] Uses `@/shared/store` instead of direct `zustand` import
-- [ ] No `export default`
-- [ ] No `any` type
-- [ ] Explicit return types on exported functions
+- [x] Orchestrator injects planner task list into implementer prompt (context passing)
+- [x] Implementer creates correct FSD scaffold (entities/counter/model/ + index.ts)
+- [x] Uses `@/shared/store` instead of direct `zustand` import
+- [x] No `export default`
+- [x] No `any` type
+- [x] Explicit return types on exported functions
 
 ---
 
