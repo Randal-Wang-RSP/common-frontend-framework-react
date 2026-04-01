@@ -45,12 +45,19 @@ Delegate to `planner` subagent.
 **After planner responds:**
 
 1. Present the full plan to the user (tasks, chunking decision, task state file draft)
-2. **Gate ①** — Ask the user to confirm, edit, or cancel:
+2. **Gate ①** — Present plan AND proposed branch name together, then ask:
    ```
-   vscode_askQuestions: "Confirm implementation plan?"
-   Options: ["Confirm, proceed to branching", "Edit plan", "Cancel"]
+   vscode_askQuestions: "Confirm plan and branch?"
+   Options: ["Confirm — create plan and branch", "Edit plan or branch name", "Cancel"]
+   allowFreeformInput: true  # user can say "confirm, but rename branch to feat/xxx"
    ```
-3. If confirmed: write the task state file to `docs/agent-tasks/active/<YYYY-MM-DD>-<scope>.md`
+
+   - **Single-chunk:** Gate ① covers both plan approval and branch name approval.
+     Branch creation proceeds immediately after confirmation — Gate ② is skipped.
+   - **Multi-chunk:** Gate ① covers plan approval and Chunk 1 branch only.
+     Gate ② fires independently before each subsequent chunk's branch creation.
+3. If confirmed: write the task state file to `docs/agent-tasks/active/<YYYY-MM-DD>-<scope>.md`,
+   then proceed directly to branch creation (Stage 2)
 4. If user edits: incorporate edits and re-present before writing the file
 5. If cancelled: trigger the Abandon Protocol (see below)
 
@@ -62,19 +69,22 @@ Delegate to `git` subagent.
 
 **Inject into git prompt:**
 
-- Branch name to create (from the plan: `feat/<scope>-<desc>` for single-chunk, or `feat/<scope>-<layer>-<name>` for multi-chunk)
+- Branch name to create (confirmed in Gate ①, or the current chunk's branch for Chunk 2+)
 - Base branch: `development`
-- For Chunk 2+: whether to run branch freshness check (`git fetch origin development`)
+- For Chunk 2+: run branch freshness check first (`git fetch origin development`)
 
 **After git responds:**
 
-1. **Gate ②** — Present proposed branch name and ask:
-   ```
-   vscode_askQuestions: "Create branch?"
-   Options: ["Confirm branch name", "Edit branch name", "Cancel"]
-   ```
-2. If confirmed: confirm git agent executes branch creation
-3. Update task state file: set current chunk's branch reference
+- **Single-chunk:** No gate here — branch name was already confirmed in Gate ①.
+  If git reports an error (e.g. branch already exists), surface it and ask the user.
+- **Chunk 2+ (multi-chunk only):** Fire **Gate ②**:
+  ```
+  vscode_askQuestions: "Ready to start Chunk N — create branch?"
+  Options: ["Confirm branch name", "Edit branch name", "Cancel"]
+  allowFreeformInput: false
+  ```
+
+After branch is created: update task state file with the branch reference.
 
 ---
 
