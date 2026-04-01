@@ -6,7 +6,7 @@ description: >
   merge. Delegates all work to specialist subagents. Manages task state
   files in docs/agent-tasks/ for session persistence.
 name: dev
-tools: [agent, todo, read, edit]
+tools: [agent, todo, read, edit] # edit is used only for task state files in docs/agent-tasks/ — never for source code
 agents: [planner, implementer, tester, fsd-reviewer, code-reviewer, pr-reviewer, git]
 argument-hint: "Describe the feature or task to implement"
 ---
