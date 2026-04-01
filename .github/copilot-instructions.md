@@ -126,5 +126,7 @@ Protected: `main` and `development` — PR + 1 approval required, no direct push
 - **Language:** Response text follows the user's language. Code, comments, docs, and commits are always in English.
 - **Branch-first:** Always create a feature branch before writing code. Never commit to `main` or `development` directly.
 - **Gate protocol:** At every Gate checkpoint, ask the user for confirmation using `vscode_askQuestions` before executing any irreversible action (branch creation, commits, PR creation, merge). Never proceed without tool-based confirmation.
+  - Set `allowFreeformInput: true` when the user may need to provide custom input alongside options (e.g., plan confirmation, commit message edit, branch naming).
+  - Set `allowFreeformInput: false` for purely binary gates where choosing an option is sufficient (e.g., confirm/cancel, continue/stop).
 - **Session end gate:** After any commit, PR creation, or code change, ask the user about next action. Always include a pause/stop option.
 - **Context passing:** When delegating to a subagent, explicitly include the prior stage's output in the invocation prompt. Subagents have no shared memory.

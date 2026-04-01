@@ -70,9 +70,24 @@ Before writing any file, gather the context you need:
 
 Only read what is actually needed by the files you are creating.
 
-## Step 4 — Implement the Files
+## Step 4 — Declare Work Plan
 
-Write each file in the order listed in the task entry.
+Before writing the first file, output a file checklist in your response:
+
+```
+### Work Plan — Task N: <layer>/<slice-name>
+- [ ] <segment>/<file-1>.<ext>
+- [ ] <segment>/<file-2>.<ext>
+- [ ] index.ts
+```
+
+Then implement each file in the listed order. After completing each file,
+mark it complete in your running response (`[x]`). This is output text —
+do NOT use the `todo` tool, which is reserved for the orchestrator.
+
+## Step 5 — Write the Files
+
+Write each file in the order declared in your Work Plan.
 Apply these rules consistently:
 
 ### TypeScript Rules
@@ -186,7 +201,7 @@ export { UserCard } from "./ui/UserCard"
 Do NOT re-export internal utilities, hooks used only within the slice,
 or segment-level `index.ts` files.
 
-## Step 5 — Report Output
+## Step 6 — Report Output
 
 After creating all files, report to the orchestrator in this format:
 
