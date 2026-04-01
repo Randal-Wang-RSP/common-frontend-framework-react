@@ -156,7 +156,7 @@ Task 1: entities/counter
 Layer: entities
 Slice: counter
 Segments to create: model/
-Files to create: - model/counterStore.ts # Zustand store with count state and increment action - model/types.ts # CounterState interface - index.ts # barrel: re-export store and types
+Files to create: - model/useCounterStore.ts # Zustand store with count state and increment action - model/types.ts # CounterState interface - index.ts # barrel: re-export store and types
 
 **Task Dependency Order:** Task 1 (no dependencies)
 
