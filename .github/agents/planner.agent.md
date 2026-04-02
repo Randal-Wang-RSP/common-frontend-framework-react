@@ -183,3 +183,41 @@ agents: []
 - 多 Chunk 任务的首次规划结果需要用户确认后再继续
 - 分块应以"可独立合并且不破坏主分支"为原则
 - 混合 Story 的推荐拆分顺序：共享基础 → UI Shell → 数据逻辑 → 测试补全
+
+## 返回契约
+
+**所有输出必须以结构化的 PLANNER_RESULT 块结尾**，供 dev 协调器解析。使用 HTML 注释格式：
+
+### 成功（计划就绪）
+
+```html
+<!-- PLANNER_RESULT
+status: success
+task-id: {任务标识，如 auth-login}
+chunk-total: {总块数，单块任务为 1}
+current-chunk: {当前块号}
+chunk-file: {.dev/chunks/ 文件路径，单块任务为 "none"}
+mode: {🎨 UI | ⚙️ Logic | 🔀 Hybrid}
+branch-suggestion: {建议的分支名，如 feat/auth-login-form}
+-->
+```
+
+### 需要澄清
+
+```html
+<!-- PLANNER_RESULT
+status: needs-clarification
+task-id: {任务标识}
+questions: {需要用户回答的问题数量}
+-->
+```
+
+### 错误
+
+```html
+<!-- PLANNER_RESULT
+status: error
+task-id: {任务标识}
+reason: {简短错误原因}
+-->
+```

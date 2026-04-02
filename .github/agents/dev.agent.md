@@ -53,9 +53,16 @@ fix: 登录页在 Safari 下白屏 --figma https://figma.com/design/yyy
 - **如果是首次执行大任务**: planner 会生成分块清单，向用户确认后再继续
 - **如果是继续执行**: planner 读取 `.dev/chunks/` 中的 Manifest，定位当前 Chunk
 
-### Gate ① — 计划确认
+### Stage 1.5 — 验证 planner 输出
 
-planner 返回后，dev 执行以下检查：
+planner 返回后，dev **必须**解析输出末尾的 `PLANNER_RESULT` 块：
+
+- **`status: success`** → 提取 `task-id`、`mode`、`branch-suggestion`、`chunk-file`，进入 Gate ①
+- **`status: needs-clarification`** → 将 planner 列出的问题展示给用户，收集答案后重新调用 planner
+- **`status: error`** → 展示错误原因，终止流程并通知用户
+- **未找到 PLANNER_RESULT 块** → 视为异常，告知用户 planner 输出格式异常，询问是否重试
+
+### Gate ① — 计划确认
 
 1. **展示计划摘要**：向用户展示当前 Chunk 的实现计划（技术方案、变更文件、实现步骤）
 2. **确认继续**：调用 `vscode/askQuestions` 让用户选择：
@@ -67,7 +74,7 @@ planner 返回后，dev 执行以下检查：
 ### Stage 2 → 创建分支（dev 自身执行）
 
 - 根据任务信息创建 feature branch，**必须在写代码前完成**
-- 分支命名规则：
+- 优先使用 planner 返回的 `branch-suggestion`，否则按以下规则生成：
   - Jira 驱动: `feat/{jira-key}-{chunk简称}` (如 `feat/FE-1234-login-form`)
   - 需求驱动: `feat/{任务简称}` (如 `feat/avatar-upload`)
   - 修复类: `fix/{标识}-{简述}` (如 `fix/safari-whitepage`)
@@ -76,10 +83,15 @@ planner 返回后，dev 执行以下检查：
 
 ### Stage 3 → 委派给 @implementer
 
-- 将 planner 输出的当前 Chunk 实现计划传递给 implementer
-- 同时传递模式标记（🎨 UI / ⚙️ Logic）和 Figma URL（如有）
-- implementer 完成所有代码编写
-- 确认代码变更完成
+调用 implementer 时，**必须**在 prompt 中传递以下上下文：
+
+1. **实现计划全文** — planner 输出的完整实现计划（技术方案、变更文件清单、实现步骤、测试要点）
+2. **模式标记** — 从 PLANNER_RESULT 的 `mode` 字段获取（🎨 UI / ⚙️ Logic / 🔀 Hybrid）
+3. **Figma URL** — 如有，从用户输入中提取
+4. **Chunk 文件路径** — 如果是多块任务，提供 `.dev/chunks/` 文件路径供 implementer 参考全局上下文
+5. **当前分支名** — 确认 implementer 在正确分支上工作
+
+implementer 完成后，确认代码变更完成。
 
 ---
 
