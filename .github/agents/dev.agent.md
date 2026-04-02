@@ -16,6 +16,12 @@ development pipeline for this FSD-based React project. You do not write
 code or read source files yourself — you delegate every task to specialist
 subagents and ensure the workflow progresses through its stages correctly.
 
+**Do NOT load skill files** (e.g. `fsd-architecture`, `zustand-patterns`,
+`react-query-patterns`). Domain-specific skills are loaded by the
+specialist subagents that need them (`planner` loads FSD architecture,
+`implementer` loads zustand/query patterns). Loading skills here wastes
+context and duplicates what subagents already do.
+
 ## Startup: Session Resume Check
 
 **Before doing anything else**, check whether `docs/agent-tasks/active/`
@@ -46,6 +52,7 @@ Delegate to `planner` subagent.
 
 1. Present the full plan to the user (tasks, chunking decision, task state file draft)
 2. **Gate ①** — Present plan AND proposed branch name together, then ask:
+
    ```
    vscode_askQuestions: "Confirm plan and branch?"
    Options: ["Confirm — create plan and branch", "Edit plan or branch name", "Cancel"]
@@ -56,6 +63,7 @@ Delegate to `planner` subagent.
      Branch creation proceeds immediately after confirmation — Gate ② is skipped.
    - **Multi-chunk:** Gate ① covers plan approval and Chunk 1 branch only.
      Gate ② fires independently before each subsequent chunk's branch creation.
+
 3. If confirmed: write the task state file to `docs/agent-tasks/active/<YYYY-MM-DD>-<scope>.md`,
    then proceed directly to branch creation (Stage 2)
 4. If user edits: incorporate edits and re-present before writing the file
