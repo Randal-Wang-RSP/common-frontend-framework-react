@@ -20,6 +20,8 @@ actionable implementation plan. You do not write code.
 - DO NOT make assumptions about implementation details — focus on structure
 - ONLY output a plan in the exact format specified below
 - ALWAYS load the `#file:.github/skills/fsd-architecture/SKILL.md` skill before planning
+- Do NOT load implementation-detail skills (`zustand-patterns`, `react-query-patterns`).
+  Those are the implementer's responsibility. The planner only needs FSD layer knowledge.
 
 ## Approach
 
