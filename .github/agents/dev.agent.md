@@ -64,6 +64,8 @@ Delegate to `planner` subagent.
    - **Multi-chunk:** Gate ① covers plan approval and Chunk 1 branch only.
      Gate ② fires independently before each subsequent chunk's branch creation.
 
+   **⛔ BLOCKING:** Do NOT proceed to Stage 2 until `vscode_askQuestions` returns a selected option. If the tool call fails or returns no selection, re-prompt — never silently advance.
+
 3. If confirmed: write the task state file to `docs/agent-tasks/active/<YYYY-MM-DD>-<scope>.md`,
    then proceed directly to branch creation (Stage 2)
 4. If user edits: incorporate edits and re-present before writing the file
@@ -99,6 +101,8 @@ After branch is created: update task state file with the branch reference.
 ## Stage 3 — IMPLEMENT
 
 Delegate to `implementer` subagent (one invocation per task in the current chunk).
+
+**Pre-check (mandatory):** Before invoking implementer, validate that each task entry contains ALL required fields: `layer`, `slice`, `segments`, `files`. If any field is missing or empty, do NOT invoke implementer — re-delegate to `planner` with the incomplete task entry and ask it to fill the gaps.
 
 **Inject into each implementer prompt:**
 
