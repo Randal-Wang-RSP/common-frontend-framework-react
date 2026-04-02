@@ -69,7 +69,7 @@ export const useCounterStore = create<CounterState>()(
 - State shape defined by a TypeScript `interface` (not `type`) in the same file or `types.ts`
 - `devtools` middleware always wraps the store creator for DevTools support
 - Action names follow `"<sliceName>/<actionName>"` pattern (third arg to `set`)
-- `false` as second arg to `set` = replace, not merge (use for actions that replace state)
+- `false` as second arg to `set` = merge (default), `true` = replace entire state
 
 ---
 

@@ -66,6 +66,8 @@ Task N: <layer>/<slice-name>
 | `ui/`     | CSS Module        | `<ComponentName>.module.css`       | `CounterCard.module.css`  |
 | (root)    | Barrel            | `index.ts`                         | `index.ts`                |
 
+**`types.ts` threshold rule:** Only create a separate `model/types.ts` file when the state interface has 3 or more fields. For simpler stores (≤ 2 fields), define the interface inline in the store file and omit `types.ts` from the file list.
+
 Order tasks so that lower-layer slices come first (entities before features, features before pages).
 
 ### Step 4 — Chunking Decision
@@ -156,11 +158,11 @@ Task 1: entities/counter
 Layer: entities
 Slice: counter
 Segments to create: model/
-Files to create: - model/useCounterStore.ts # Zustand store with count state and increment action - model/types.ts # CounterState interface - index.ts # barrel: re-export store and types
+Files to create: - model/useCounterStore.ts # Zustand store with count state and increment action (interface inlined — ≤ 2 fields) - index.ts # barrel: re-export store and types
 
 **Task Dependency Order:** Task 1 (no dependencies)
 
-**Chunking Decision:** small — 1 task, 1 layer, 3 files → Single PR
+**Chunking Decision:** small — 1 task, 1 layer, 2 files → Single PR
 
 **Task State File Draft:**
 
