@@ -38,9 +38,9 @@ Naming convention: hook name matches `use` + PascalCase slice name + `Store`.
 
 ## Entity Store Pattern
 
-Entity stores are **read-only** from the outside — they expose state and
-selectors, not mutation actions. Actions that trigger side effects belong
-in `features`, not `entities`.
+Entity stores may contain **pure state transitions** (synchronous `set` calls
+with no external side effects). Actions that involve API calls, async
+operations, or cross-slice coordination belong in `features`, not `entities`.
 
 ```ts
 // src/entities/counter/model/useCounterStore.ts

@@ -128,18 +128,18 @@ import { Button } from "../../shared/ui"
 
 ```ts
 import { create, devtools } from "@/shared/store"
-import type { StateCreator } from "@/shared/store"
 import type { EntityState, EntityActions } from "./types"
 
 type EntityStore = EntityState & EntityActions
 
-const storeCreator: StateCreator<EntityStore> = (set) => ({
-  // initial state fields
-  // action methods — mutate via set()
-})
-
 export const useEntityStore = create<EntityStore>()(
-  devtools(storeCreator, { name: "entity/entityName" })
+  devtools(
+    (set) => ({
+      // initial state fields
+      // action methods — mutate via set()
+    }),
+    { name: "entityName" }
+  )
 )
 ```
 

@@ -133,7 +133,9 @@ Always output the plan in this exact structure, with no additional prose:
 
 **Chunking Decision:** <small|medium|large>
 
-[If medium or large:]
+**Proposed branch:** `feat/<scope>-<short-description>`
+
+[If medium or large — add chunk breakdown:]
 **Chunks:**
 
 - Chunk 1: Tasks 1–N (layer: entities) — branch: feat/<scope>-entity-<name>
@@ -163,6 +165,8 @@ Files to create: - model/useCounterStore.ts # Zustand store with count state and
 **Task Dependency Order:** Task 1 (no dependencies)
 
 **Chunking Decision:** small — 1 task, 1 layer, 2 files → Single PR
+
+**Proposed branch:** `feat/counter-entity`
 
 **Task State File Draft:**
 
