@@ -53,11 +53,11 @@ fix: 登录页在 Safari 下白屏 --figma https://figma.com/design/yyy
 - **如果是首次执行大任务**: planner 生成分块清单 + 所有 Chunk 的实现计划
 - **如果是继续执行**: planner 读取 `.dev/chunks/` 中的 Manifest，定位当前 Chunk
 
-### Stage 1.5 — 验证 planner 输出
+### Stage 2 — 验证 planner 输出
 
 planner 返回后，dev **必须**解析输出末尾的 `PLANNER_RESULT` 块：
 
-- **`status: success`** → 提取 `task-id`、`mode`、`branch-suggestion`、`chunk-file`，**并保留 planner 的完整 response 文本**，进入 Gate ①
+- **`status: success`** → 提取 `task-id`、`mode`、`branch-suggestion`、`chunk-file`，进入 Gate ①
 - **`status: needs-clarification`** → 将 planner 列出的问题展示给用户，收集答案后重新调用 planner
 - **`status: error`** → 展示错误原因，终止流程并通知用户
 - **未找到 PLANNER_RESULT 块** → 视为异常，告知用户 planner 输出格式异常，询问是否重试
@@ -74,9 +74,9 @@ planner 返回后，dev **必须**解析输出末尾的 `PLANNER_RESULT` 块：
    - ✅ 确认，继续执行
    - ✏️ 需要修改（重新调用 planner）
    - ❌ 取消
-3. **用户确认后才能进入 Stage 2**
+3. **用户确认后才能进入 Stage 3**
 
-### Stage 2 → 创建分支（dev 自身执行）
+### Stage 3 → 创建分支（dev 自身执行）
 
 - 根据任务信息创建 feature branch，**必须在写代码前完成**
 - 优先使用 planner 返回的 `branch-suggestion`，否则按以下规则生成：
@@ -86,7 +86,7 @@ planner 返回后，dev **必须**解析输出末尾的 `PLANNER_RESULT` 块：
 - 基于 `development` 分支创建
 - 如果分支已存在（继续执行 chunk 场景），切换到该分支
 
-### Stage 3 → 委派给 @implementer
+### Stage 4 → 委派给 @implementer
 
 调用 implementer 时，**必须**在 prompt 中传递以下上下文：
 
