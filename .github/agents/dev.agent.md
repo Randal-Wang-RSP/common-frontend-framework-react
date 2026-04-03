@@ -57,15 +57,17 @@ fix: 登录页在 Safari 下白屏 --figma https://figma.com/design/yyy
 
 planner 返回后，dev **必须**解析输出末尾的 `PLANNER_RESULT` 块：
 
-- **`status: success`** → 提取 `task-id`、`mode`、`branch-suggestion`、`chunk-file`，进入 Gate ①
+- **`status: success`** → 提取 `task-id`、`mode`、`branch-suggestion`、`chunk-file`，进入 Gate ①。**⛔ 不要读取 `.dev/chunks/` 文件** — planner 的 response 已包含完整计划，直接用它向用户展示。
 - **`status: needs-clarification`** → 将 planner 列出的问题展示给用户，收集答案后重新调用 planner
 - **`status: error`** → 展示错误原因，终止流程并通知用户
 - **未找到 PLANNER_RESULT 块** → 视为异常，告知用户 planner 输出格式异常，询问是否重试
 
-**⚠️ 数据流原则：** planner 的 subagent response 已包含完整计划文本。dev 在 Gate ① 中直接使用该 response 向用户展示计划摘要，**不要额外读取** `.dev/chunks/` 文件。Chunk 文件的用途是：
+`.dev/chunks/` 文件**仅**在以下场景读取：
 
-1. **会话持久化** — startup resume check 恢复时读取
-2. **Implementer 的计划来源** — implementer 自行读取 chunk 文件获取实现细节（dev 不注入计划全文，只传递文件路径）
+- **会话恢复**（startup resume check 发现了 active task，没有 fresh planner response）
+- **Implementer 自行读取**（dev 传递 chunk 文件路径，implementer 自己读取实现细节）
+
+Dev 在正常流程中**永远不读取** `.dev/chunks/` 文件。
 
 ### Gate ① — 计划确认
 
