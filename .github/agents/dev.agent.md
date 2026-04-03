@@ -50,17 +50,22 @@ fix: 登录页在 Safari 下白屏 --figma https://figma.com/design/yyy
 
 - 将所有解析出的信息传递给 planner
 - planner 将输出 Chunk Manifest（或单块计划）并直接返回，**不会**向用户确认
-- **如果是首次执行大任务**: planner 生成分块清单 + 当前 Chunk 的实现计划
+- **如果是首次执行大任务**: planner 生成分块清单 + 所有 Chunk 的实现计划
 - **如果是继续执行**: planner 读取 `.dev/chunks/` 中的 Manifest，定位当前 Chunk
 
 ### Stage 1.5 — 验证 planner 输出
 
 planner 返回后，dev **必须**解析输出末尾的 `PLANNER_RESULT` 块：
 
-- **`status: success`** → 提取 `task-id`、`mode`、`branch-suggestion`、`chunk-file`，进入 Gate ①
+- **`status: success`** → 提取 `task-id`、`mode`、`branch-suggestion`、`chunk-file`，**并保留 planner 的完整 response 文本**，进入 Gate ①
 - **`status: needs-clarification`** → 将 planner 列出的问题展示给用户，收集答案后重新调用 planner
 - **`status: error`** → 展示错误原因，终止流程并通知用户
 - **未找到 PLANNER_RESULT 块** → 视为异常，告知用户 planner 输出格式异常，询问是否重试
+
+**⚠️ 数据流原则：** planner 的 subagent response 已包含完整计划文本。dev 在 Gate ① 中直接使用该 response 向用户展示计划摘要，**不要额外读取** `.dev/chunks/` 文件。Chunk 文件的用途是：
+
+1. **会话持久化** — startup resume check 恢复时读取
+2. **Implementer 的计划来源** — implementer 自行读取 chunk 文件获取实现细节（dev 不注入计划全文，只传递文件路径）
 
 ### Gate ① — 计划确认
 
@@ -85,11 +90,10 @@ planner 返回后，dev **必须**解析输出末尾的 `PLANNER_RESULT` 块：
 
 调用 implementer 时，**必须**在 prompt 中传递以下上下文：
 
-1. **实现计划全文** — planner 输出的完整实现计划（技术方案、变更文件清单、实现步骤、测试要点）
+1. **Chunk 文件路径** — `.dev/chunks/` 文件路径 + 当前 Chunk 编号。**Implementer 自行读取该文件**获取完整实现计划（技术方案、变更文件清单、实现步骤、测试要点）。Dev 不注入计划全文。
 2. **模式标记** — 从 PLANNER_RESULT 的 `mode` 字段获取（🎨 UI / ⚙️ Logic / 🔀 Hybrid）
 3. **Figma URL** — 如有，从用户输入中提取
-4. **Chunk 文件路径** — 如果是多块任务，提供 `.dev/chunks/` 文件路径供 implementer 参考全局上下文
-5. **当前分支名** — 确认 implementer 在正确分支上工作
+4. **当前分支名** — 确认 implementer 在正确分支上工作
 
 implementer 完成后，确认代码变更完成。
 
