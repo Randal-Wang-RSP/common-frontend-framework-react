@@ -49,8 +49,8 @@ fix: 登录页在 Safari 下白屏 --figma https://figma.com/design/yyy
 ### Stage 1 → 委派给 @planner
 
 - 将所有解析出的信息传递给 planner
-- planner 将输出 Chunk Manifest（或单块计划）
-- **如果是首次执行大任务**: planner 会生成分块清单，向用户确认后再继续
+- planner 将输出 Chunk Manifest（或单块计划）并直接返回，**不会**向用户确认
+- **如果是首次执行大任务**: planner 生成分块清单 + 当前 Chunk 的实现计划
 - **如果是继续执行**: planner 读取 `.dev/chunks/` 中的 Manifest，定位当前 Chunk
 
 ### Stage 1.5 — 验证 planner 输出

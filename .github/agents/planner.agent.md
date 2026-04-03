@@ -7,7 +7,6 @@ tools:
   - search
   - read
   - edit # only for updating plan files under .dev/chunks/
-  - vscode/askQuestions
   - atlassian/*
 agents: []
 ---
@@ -35,7 +34,7 @@ agents: []
    - **目标**: 一句话概括要做什么
    - **验收标准 (AC)**: 从描述中提取或推导
    - **约束条件**: 技术限制、兼容性要求等
-3. 向用户确认理解是否正确
+3. 如果需求描述模糊或信息不足，通过 `needs-clarification` 返回状态列出具体问题，由 dev 代为询问用户
 4. 使用任务简称作为标识（如 "avatar-upload"），用于 Manifest 文件命名
 
 ## Step 2: 检查是否有前序 Chunk
@@ -73,7 +72,8 @@ agents: []
 ## Step 5: Figma 检查
 
 - 如果当前 Chunk 是 🎨 UI 模式，但用户没有提供 Figma URL：
-  → **主动询问**："这个任务涉及 UI 变更，是否有 Figma 设计稿？请提供 URL，或回复 '无' 跳过。"
+  → 通过 `needs-clarification` 返回状态，在问题列表中包含"这个任务涉及 UI 变更，是否有 Figma 设计稿？请提供 URL，或回复 ‘无’ 跳过。"
+  → dev 协调器会代为询问用户，收集答案后重新调用 planner
 - 如果有 Figma URL：记录到计划中，标注需要关注的 Frame/Node
 
 ## Step 6: 创建/更新 Manifest 文件
@@ -211,9 +211,18 @@ agents: []
 - **不修改任何业务代码**，仅允许创建/更新 `.dev/chunks/` 下的计划文件
 - 如果 Jira ticket 信息不足或需求描述模糊，列出需要澄清的问题
 - 实现计划必须具体到文件级别
-- 多 Chunk 任务的首次规划结果需要用户确认后再继续
 - 分块应以"可独立合并且不破坏主分支"为原则
 - 混合 Story 的推荐拆分顺序：共享基础 → UI Shell → 数据逻辑 → 测试补全
+
+## Subagent 行为约束
+
+planner 作为 dev 的 subagent 运行，必须遵守以下约束：
+
+- **不与用户直接交互** — planner 没有 `vscode/askQuestions` 工具，所有用户交互由 dev 协调器代理
+- **不执行计划确认** — 计划确认是 dev 的职责（Gate ①），planner 生成计划后直接返回
+- **不执行 session end gate** — subagent 完成后立即返回 PLANNER_RESULT，不询问"接下来做什么"
+- **需要用户输入时用 `needs-clarification`** — 通过返回契约将问题传递给 dev，由 dev 询问用户后重新调用 planner
+- **不重复 dev 的职责** — 不创建分支、不触发 implementer、不展示最终确认
 
 ## 返回契约
 
