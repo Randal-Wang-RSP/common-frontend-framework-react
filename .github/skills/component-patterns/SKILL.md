@@ -1,6 +1,6 @@
 ---
 name: component-patterns
-description: "React component patterns: container/presentation split, forwardRef, state handling, CSS Modules, Ant Design integration, accessibility basics."
+description: "React component patterns: container/presentation split, ref forwarding, state handling, CSS Modules, Ant Design integration, accessibility basics."
 ---
 
 # Component Patterns
@@ -122,7 +122,6 @@ function UserList(): React.ReactElement {
 
 ```tsx
 import styles from "./LoginForm.module.css"
-
 ;<div className={styles["login-form"]}>
   <div className={styles["login-form__footer"]}>
     <a className={styles["login-form__link--secondary"]}>忘记密码</a>
@@ -194,20 +193,17 @@ function LoginForm({ onSuccess, redirectTo = "/" }: LoginFormProps): React.React
 }
 ```
 
-For reusable shared UI components, use `forwardRef`:
+For reusable shared UI components that need to expose a DOM node, pass `ref` as a regular prop:
 
 ```tsx
-import { forwardRef } from "react"
-
+// React 19+ — ref is a regular prop (no forwardRef needed)
 interface CustomInputProps {
   label: string
   error?: string
+  ref?: React.Ref<HTMLInputElement>
 }
 
-const CustomInput = forwardRef<HTMLInputElement, CustomInputProps>(function CustomInput(
-  { label, error, ...rest },
-  ref
-) {
+function CustomInput({ label, error, ref, ...rest }: CustomInputProps): React.ReactElement {
   return (
     <div>
       <label>{label}</label>
@@ -215,10 +211,31 @@ const CustomInput = forwardRef<HTMLInputElement, CustomInputProps>(function Cust
       {error && <span>{error}</span>}
     </div>
   )
-})
+}
 
 export { CustomInput }
 ```
+
+> **React 18 fallback:** If the project is still on React 18, use `forwardRef`:
+>
+> ```tsx
+> import { forwardRef } from "react"
+>
+> const CustomInput = forwardRef<HTMLInputElement, CustomInputProps>(function CustomInput(
+>   { label, error, ...rest },
+>   ref
+> ) {
+>   return (
+>     <div>
+>       <label>{label}</label>
+>       <input ref={ref} {...rest} />
+>       {error && <span>{error}</span>}
+>     </div>
+>   )
+> })
+> ```
+>
+> Check the React version in `package.json` to decide which pattern to use.
 
 ## Page Components
 
