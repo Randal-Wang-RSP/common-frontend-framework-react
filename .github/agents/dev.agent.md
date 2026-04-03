@@ -99,9 +99,15 @@ implementer 完成后，确认代码变更完成。
 
 ### Stage 5 → 委派给 @verifier
 
-- 委派 verifier 执行本地验证（lint、测试、构建）
-- 如果失败，将错误信息回传给 @implementer 修复，然后重新验证
-- 最多重试 2 次，仍失败则停止流程报告用户
+**Inject into verifier prompt:**
+
+- 当前 Chunk 中 implementer 创建/修改的文件列表
+
+**根据 verifier 返回结果处理：**
+
+- **通过** → 进入 Stage 6（commit/push）
+- **失败** → 将 verifier 返回的错误详情传递给 @implementer 修复，修复后重新委派 @verifier
+- **最多重试 2 次**。仍失败则停止流程，向用户报告错误
 
 ---
 
