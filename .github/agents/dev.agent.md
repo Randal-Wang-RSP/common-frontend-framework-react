@@ -80,13 +80,33 @@ Dev 在正常流程中**永远不读取** `.dev/chunks/` 文件。
 
 ### Stage 3 → 创建分支（dev 自身执行）
 
-- 根据任务信息创建 feature branch，**必须在写代码前完成**
-- 优先使用 planner 返回的 `branch-suggestion`，否则按以下规则生成：
-  - Jira 驱动: `feat/{jira-key}-{chunk简称}` (如 `feat/FE-1234-login-form`)
+每个 Chunk 使用独立分支，确保每个 PR 只包含一个 Chunk 的变更。
+
+#### 单 Chunk 任务
+
+- 创建一个 feature branch，基于 `development`
+- 命名规则：
+  - Jira 驱动: `feat/{jira-key}-{简称}` (如 `feat/FE-1234-login-form`)
   - 需求驱动: `feat/{任务简称}` (如 `feat/avatar-upload`)
   - 修复类: `fix/{标识}-{简述}` (如 `fix/safari-whitepage`)
-- 基于 `development` 分支创建
-- 如果分支已存在（继续执行 chunk 场景），切换到该分支
+
+#### 多 Chunk 任务（Stacked Branches）
+
+每个 Chunk 创建独立分支，形成分支链：
+
+```
+development
+  └── feat/{task}-chunk-1  ← Chunk 1 PR → development
+        └── feat/{task}-chunk-2  ← Chunk 2 PR → development
+              └── feat/{task}-chunk-3  ← Chunk 3 PR → development
+```
+
+- **Chunk 1**: 基于 `development` 创建 `feat/{task}-chunk-1`
+- **Chunk N (N>1)**: 基于前一个 Chunk 的分支创建 `feat/{task}-chunk-N`
+- 所有 PR 都 target `development`（非前一个 chunk 的分支）
+- 优先使用 planner 返回的 `branch-suggestion`（planner 会对每个 chunk 生成独立分支名）
+
+**首个 Chunk 的分支在 Gate ① 确认后、Stage 4 之前创建。后续 Chunk 的分支在 Gate ② 确认继续后、下一个 Stage 4 之前创建。**
 
 ### Stage 4–6 → Chunk 迭代循环
 
@@ -94,13 +114,13 @@ Dev 在正常流程中**永远不读取** `.dev/chunks/` 文件。
 
 ```
 for each Chunk (1..N):
+  创建 Chunk 分支（Stage 3 规则）
   Chunk 摘要展示（信息性，无需确认）
   Stage 4 → @implementer 实现 Chunk
   Stage 5 → @verifier 验证 Chunk
   若验证失败 → @implementer 修复 → @verifier 重新验证（最多 2 次）
   若仍失败 → 停止流程，报告错误
-  Chunk 通过 → Stage 6 提交
-  Stage 6 → commit + push（+ 首个 Chunk 时创建 Draft PR）
+  Chunk 通过 → Stage 6 提交 + push + 创建 PR
   Gate ② → 询问用户：继续下一 Chunk / 暂停 / 中止
 ```
 
@@ -137,9 +157,11 @@ implementer 完成后，**不要运行测试或验证** — 直接进入 Stage 5
 - **验证失败** → 将错误详情回传给 @implementer 修复，然后重新调用 @verifier 验证
 - 最多重试 2 次，仍失败则停止流程，向用户报告错误
 
-#### Stage 6 → 提交当前 Chunk（dev 自身执行）
+#### Stage 6 → 提交当前 Chunk 并创建 PR（dev 自身执行）
 
 验证通过后，dev **自身**执行以下步骤（不委派给 subagent）：
+
+##### 6a. Commit
 
 1. **选择性暂存** — `git add` 仅暂存当前 Chunk 变更文件清单中的文件，不使用 `git add -A`
 2. **生成 commit message** — 格式：`<type>(<scope>): <description>`
@@ -147,11 +169,51 @@ implementer 完成后，**不要运行测试或验证** — 直接进入 Stage 5
    - 多 Chunk 任务：commit message 标注 Chunk 编号，如 `feat(auth): add data layer and store (chunk 1/3)`
 3. **向用户确认** — 调用 `vscode/askQuestions` 展示 commit message，选项：✅ 确认 / ✏️ 修改 / ❌ 取消
 4. **执行 commit** — 用户确认后执行 `git commit`
-5. **Push** — `git push origin {branch}` （首次 push 用 `-u`）
-6. **创建/更新 PR**（仅多 Chunk 任务）：
-   - **首个 Chunk**: 创建 Draft PR，标题包含完整功能描述，body 包含 Chunk 清单和当前进度
-   - **后续 Chunk**: PR 已存在，push 后自动更新，无需额外操作
-7. **更新 Manifest** — 将当前 Chunk 状态从 ⏳ 更新为 ✅，记录 commit hash
+
+##### 6b. Push
+
+- `git push -u origin {chunk-branch}`
+
+##### 6c. 创建 PR（每个 Chunk 一个独立 PR）
+
+**每个 Chunk 创建独立的 PR**，target 到 `development`。
+
+- **PR 标题**: `<type>(<scope>): <chunk 描述> (chunk N/Total)`
+  - 示例: `feat(auth): add data layer — store, API, validators (chunk 1/2)`
+- **PR body** 必须包含以下结构：
+
+```markdown
+## Chunk {N}/{Total}: {Chunk 名称}
+
+### 技术方案
+
+{从 Manifest 中提取该 Chunk 的"技术方案"段落，完整粘贴}
+
+### 变更文件
+
+{从 Manifest 中提取该 Chunk 的"变更文件清单"表格}
+
+### 实现要点
+
+{从 Manifest 中提取该 Chunk 的"实现步骤"关键项，可适当精简}
+
+### 测试覆盖
+
+{从 Manifest 中提取该 Chunk 的"测试要点"}
+
+---
+
+> 此 PR 是 [{任务标题}] 的 Chunk {N}/{Total}。
+> 完整的 Chunk 清单和任务概览详见 Manifest。
+```
+
+- 单 Chunk 任务也使用此结构（省略 Chunk 编号标注）
+- PR body 使用真实多行字符串，**不使用 `\n` 转义**
+
+##### 6d. 更新 Manifest
+
+- 将当前 Chunk 状态从 ⏳ 更新为 ✅
+- 记录 commit hash 和 PR 编号
 
 #### Gate ② — Chunk 间确认
 
@@ -165,8 +227,10 @@ implementer 完成后，**不要运行测试或验证** — 直接进入 Stage 5
 
 #### 所有 Chunk 完成后
 
-1. 如果 PR 是 Draft → 提示用户是否标记为 Ready for Review
-2. 向用户展示整体完成摘要（所有 Chunk 的 commit 列表、PR 链接）
+1. 向用户展示整体完成摘要：
+   - 每个 Chunk 的 PR 链接和状态
+   - Merge 顺序提示：Chunk 1 PR 应先 merge，Chunk 2 PR 在 Chunk 1 merge 后可能需要 rebase
+2. 提示用户按顺序 review 和 merge 各 PR
 
 ---
 
