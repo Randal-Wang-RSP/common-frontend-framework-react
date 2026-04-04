@@ -1,195 +1,159 @@
 ---
-description: >
-  Use when writing, reviewing, or debugging Zustand stores in this project.
-  Covers store file structure, devtools setup, typed state/actions pattern,
-  slice composition, testing stores, and how to import from @/shared/store
-  instead of zustand directly.
+name: zustand-patterns
+description: "Zustand store creation patterns using @/shared/store wrapper: store structure, devtools, persist middleware, selectors, naming conventions."
 ---
 
 # Zustand Patterns
 
-This skill covers the project-specific conventions for writing Zustand stores inside `features/<name>/model/`.
-
-Full Zustand docs: https://zustand.docs.pmnd.rs
-
----
-
-## Import from `@/shared/store`
-
-Never import from `zustand` directly. The project re-exports Zustand from `@/shared/store` to centralise middleware defaults:
+## Mandatory Import
 
 ```ts
-// ✅
-import { create } from "@/shared/store"
+// ✅ Always import from shared wrapper
+import { create, devtools } from "@/shared/store"
 
-// ❌
+// ❌ FORBIDDEN — direct zustand import
 import { create } from "zustand"
+import { devtools } from "zustand/middleware"
 ```
 
----
+The `@/shared/store` wrapper re-exports: `create`, `devtools`, `StateCreator`, `StoreApi`, `UseBoundStore`.
 
 ## Store File Structure
 
-One store per feature. File name: `use<FeatureName>Store.ts`. Place in `features/<name>/model/`.
+Store files live in `<slice>/model/use<SliceName>Store.ts`:
 
 ```ts
 // src/features/auth/model/useAuthStore.ts
-import { create } from "@/shared/store"
-import type { AuthUser } from "./types"
-
-interface AuthState {
-  user: AuthUser | null
-  isLoading: boolean
-}
+import { create, devtools } from "@/shared/store"
+import type { AuthState } from "./types"
 
 interface AuthActions {
-  setUser: (user: AuthUser | null) => void
-  setLoading: (loading: boolean) => void
-  reset: () => void
+  setAuth: (token: string, user: User) => void
+  clearAuth: () => void
 }
 
-type AuthStore = AuthState & AuthActions
-
-const initialState: AuthState = {
-  user: null,
-  isLoading: false,
-}
-
-export const useAuthStore = create<AuthStore>()((set) => ({
-  ...initialState,
-
-  setUser: (user) => set({ user }),
-  setLoading: (isLoading) => set({ isLoading }),
-  reset: () => set(initialState),
-}))
-```
-
-**Conventions:**
-- Split the type into `State` + `Actions` interfaces, compose them as `Store`
-- Extract `initialState` as a const — needed for `reset()` and tests
-- Actions are plain functions using `set`, not async — async logic belongs in `api/`
-
----
-
-## Devtools (optional but recommended)
-
-Wrap with `devtools` for Redux DevTools support in development:
-
-```ts
-import { create, devtools } from "@/shared/store"
-
-export const useAuthStore = create<AuthStore>()(
+const useAuthStore = create<AuthState & AuthActions>()(
   devtools(
     (set) => ({
-      ...initialState,
-      setUser: (user) => set({ user }, false, "auth/setUser"),
-      reset: () => set(initialState, false, "auth/reset"),
+      // State
+      token: null,
+      user: null,
+      isAuthenticated: false,
+
+      // Actions
+      setAuth: (token, user) => set({ token, user, isAuthenticated: true }, false, "setAuth"),
+      clearAuth: () => set({ token: null, user: null, isAuthenticated: false }, false, "clearAuth"),
+    }),
+    { name: "AuthStore" }
+  )
+)
+
+export { useAuthStore }
+```
+
+## Naming Rules
+
+| Item          | Pattern                  | Example                    |
+| ------------- | ------------------------ | -------------------------- |
+| Store hook    | `use<SliceName>Store`    | `useAuthStore`             |
+| Store file    | `use<SliceName>Store.ts` | `useAuthStore.ts`          |
+| Types file    | `types.ts`               | `types.ts`                 |
+| devtools name | `<SliceName>Store`       | `"AuthStore"`              |
+| Action labels | camelCase verb           | `"setAuth"`, `"clearAuth"` |
+
+## State vs Actions Separation
+
+Separate state shape from actions in type definitions:
+
+```ts
+// types.ts
+interface AuthState {
+  token: string | null
+  user: User | null
+  isAuthenticated: boolean
+}
+```
+
+Actions are defined alongside the store, not exported as a separate type (keeps the store as single source of truth).
+
+## devtools
+
+**Always wrap with `devtools`** for Redux DevTools visibility:
+
+```ts
+create<State & Actions>()(
+  devtools(
+    (set, get) => ({ ... }),
+    { name: "StoreName" }
+  )
+)
+```
+
+- Pass action name as 3rd arg to `set()`: `set(newState, false, "actionName")`
+- The `false` is the `replace` flag (default: merge)
+
+## localStorage Persistence (Manual)
+
+For simple token/user persistence, use manual localStorage (not zustand/persist middleware):
+
+```ts
+const AUTH_TOKEN_KEY = "auth_token"
+const AUTH_USER_KEY = "auth_user"
+
+const useAuthStore = create<AuthState & AuthActions>()(
+  devtools(
+    (set) => ({
+      // Initialize from localStorage
+      token: localStorage.getItem(AUTH_TOKEN_KEY),
+      user: JSON.parse(localStorage.getItem(AUTH_USER_KEY) ?? "null"),
+      isAuthenticated: !!localStorage.getItem(AUTH_TOKEN_KEY),
+
+      setAuth: (token, user) => {
+        localStorage.setItem(AUTH_TOKEN_KEY, token)
+        localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user))
+        set({ token, user, isAuthenticated: true }, false, "setAuth")
+      },
+
+      clearAuth: () => {
+        localStorage.removeItem(AUTH_TOKEN_KEY)
+        localStorage.removeItem(AUTH_USER_KEY)
+        set({ token: null, user: null, isAuthenticated: false }, false, "clearAuth")
+      },
     }),
     { name: "AuthStore" }
   )
 )
 ```
 
-The third argument to `set` is the action name shown in DevTools — use `"sliceName/actionName"` convention.
+## Selectors
 
----
-
-## Accessing State Outside React
-
-Use `getState()` for imperative access (e.g., in API callbacks):
+Use inline selectors for simple reads, extracted selectors for computed values:
 
 ```ts
-const { setUser } = useAuthStore.getState()
-setUser(responseData.user)
+// ✅ Inline — simple property access
+const token = useAuthStore((s) => s.token)
+const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+
+// ✅ Extracted — computed / multi-property
+const selectUserDisplayName = (s: AuthState) => s.user?.name ?? "Guest"
+const displayName = useAuthStore(selectUserDisplayName)
+
+// ❌ Avoid — selecting entire store (causes unnecessary re-renders)
+const store = useAuthStore()
 ```
 
----
-
-## Derived / Computed Values
-
-Prefer selectors over storing derived values:
+## Accessing Store Outside React
 
 ```ts
-// ✅ derive in a selector
-const isAuthenticated = useAuthStore((state) => state.user !== null)
-
-// ❌ don't store derived values
-const isAuthenticated = useAuthStore((state) => state.isAuthenticated) // redundant field
+// ✅ Use getState() for non-React contexts (interceptors, utility functions)
+const token = useAuthStore.getState().token
+useAuthStore.getState().clearAuth()
 ```
 
-For expensive derivations, use `useShallow` to prevent unnecessary re-renders:
+## Rules
 
-```ts
-import { useShallow } from "@/shared/store"
-
-const { user, isLoading } = useAuthStore(
-  useShallow((state) => ({ user: state.user, isLoading: state.isLoading }))
-)
-```
-
----
-
-## Async Actions
-
-Async logic (API calls) does **not** belong in the store. Keep stores synchronous. Use React Query mutations that call store actions on success:
-
-```ts
-// ✅ — store is synchronous, React Query handles async
-const { mutate: login } = useMutation({
-  mutationFn: (credentials: LoginCredentials) =>
-    apiInstance.post<AuthUser>("/auth/login", credentials),
-  onSuccess: (user) => useAuthStore.getState().setUser(user),
-  onError: () => useAuthStore.getState().setUser(null),
-})
-
-// ❌ — async inside the store
-const useAuthStore = create<AuthStore>()((set) => ({
-  login: async (credentials) => {
-    const user = await apiInstance.post("/auth/login", credentials)
-    set({ user })
-  },
-}))
-```
-
----
-
-## Testing Stores
-
-Reset state before each test using `setState` on the initial state:
-
-```ts
-// src/features/auth/model/useAuthStore.test.ts
-import { useAuthStore } from "./useAuthStore"
-import { initialState } from "./useAuthStore"  // export initialState if needed in tests
-
-beforeEach(() => {
-  useAuthStore.setState(initialState)
-})
-
-it("setUser updates user state", () => {
-  const user = { id: "1", name: "Alice" }
-  useAuthStore.getState().setUser(user)
-  expect(useAuthStore.getState().user).toEqual(user)
-})
-
-it("reset clears user", () => {
-  useAuthStore.setState({ user: { id: "1", name: "Alice" } })
-  useAuthStore.getState().reset()
-  expect(useAuthStore.getState().user).toBeNull()
-})
-```
-
-Export `initialState` from the store file so tests can reset cleanly without re-declaring it.
-
----
-
-## Public API Export
-
-Export the store hook from the slice barrel. Do not export internal types unless consumers need them:
-
-```ts
-// src/features/auth/model/index.ts
-export { useAuthStore } from "./useAuthStore"
-export type { AuthUser } from "./types"
-// do NOT export initialState, AuthStore type — these are internals
-```
+- One store per slice (don't create multiple stores in the same slice)
+- Keep stores focused — a store manages one domain concept
+- Initialize all state properties (no `undefined` initial values)
+- Named exports only: `export { useMyStore }` (no default export)
+- Test stores without React: use `getState()` / `setState()` directly
