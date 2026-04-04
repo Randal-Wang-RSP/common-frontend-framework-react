@@ -88,7 +88,20 @@ Dev 在正常流程中**永远不读取** `.dev/chunks/` 文件。
 - 基于 `development` 分支创建
 - 如果分支已存在（继续执行 chunk 场景），切换到该分支
 
-### Stage 4 → 委派给 @implementer
+### Stage 4–5 → Chunk 迭代循环
+
+对于多 Chunk 任务，按 Chunk 编号顺序逐一执行以下循环，直到所有 Chunk 完成：
+
+```
+for each Chunk (1..N):
+  Stage 4 → @implementer 实现 Chunk
+  Stage 5 → @verifier 验证 Chunk
+  若验证失败 → @implementer 修复 → @verifier 重新验证（最多 2 次）
+  若仍失败 → 停止流程，报告错误
+  Chunk 通过 → 进入下一个 Chunk
+```
+
+#### Stage 4 → 委派给 @implementer（当前 Chunk）
 
 调用 implementer 时，**必须**在 prompt 中传递以下上下文：
 
@@ -97,13 +110,19 @@ Dev 在正常流程中**永远不读取** `.dev/chunks/` 文件。
 3. **Figma URL** — 如有，从用户输入中提取
 4. **当前分支名** — 确认 implementer 在正确分支上工作
 
-implementer 完成后，确认代码变更完成。
+implementer 完成后，**不要运行测试或验证** — 直接进入 Stage 5。
 
-### Stage 5 → 委派给 @verifier
+#### Stage 5 → 委派给 @verifier（当前 Chunk）
 
-- 调用 verifier（无需注入上下文 — verifier 自行发现变更文件）
-- 如果失败，将错误详情回传给 @implementer 修复，然后重新验证
+- 调用 verifier，传递当前 Chunk 编号（verifier 自行发现变更文件并运行验证）
+- verifier 执行：类型检查 → ESLint → 测试运行
+- **验证通过** → 当前 Chunk 完成，进入下一个 Chunk 的 Stage 4
+- **验证失败** → 将错误详情回传给 @implementer 修复，然后重新调用 @verifier 验证
 - 最多重试 2 次，仍失败则停止流程，向用户报告错误
+
+#### 所有 Chunk 完成后
+
+向用户展示整体完成摘要，进入后续流程（commit / PR）。
 
 ---
 
