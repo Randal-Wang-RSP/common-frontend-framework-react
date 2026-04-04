@@ -94,6 +94,7 @@ Dev 在正常流程中**永远不读取** `.dev/chunks/` 文件。
 
 ```
 for each Chunk (1..N):
+  Chunk 摘要展示（信息性，无需确认）
   Stage 4 → @implementer 实现 Chunk
   Stage 5 → @verifier 验证 Chunk
   若验证失败 → @implementer 修复 → @verifier 重新验证（最多 2 次）
@@ -102,6 +103,20 @@ for each Chunk (1..N):
   Stage 6 → commit + push（+ 首个 Chunk 时创建 Draft PR）
   Gate ② → 询问用户：继续下一 Chunk / 暂停 / 中止
 ```
+
+#### Chunk 摘要展示（每个 Chunk 开始前）
+
+在进入 Stage 4 之前，dev 向用户展示当前 Chunk 的简要摘要（无需用户确认，展示后直接进入 Stage 4）：
+
+```markdown
+### 开始 Chunk {N}/{Total}: {Chunk 名称}
+
+- **模式**: 🎨/⚙️/🔀
+- **变更文件**: {文件数} 个（{新增数} 新增，{修改数} 修改）
+- **关键内容**: {1-2 句话概括该 Chunk 做什么}
+```
+
+此摘要从 Manifest 文件中提取，帮助用户了解当前进度。**不需要用户确认**（用户已在 Gate ① 确认了全部计划）。
 
 #### Stage 4 → 委派给 @implementer（当前 Chunk）
 
