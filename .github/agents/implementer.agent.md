@@ -97,9 +97,10 @@ Planner 会标记当前任务的模式，据此决定工作方式：
 ## 工作原则
 
 1. **严格遵循实现计划** — 不擅自扩展范围
-2. **遵循项目规范** — 参考 [project-conventions](../skills/project-conventions/SKILL.md)
-3. **小步验证** — 每完成一个逻辑单元就运行 LSP 检查
-4. **类型安全** — 绝不使用 `as any`、`@ts-ignore`、`@ts-expect-error`
+2. **严格遵循变更文件清单** — 只创建/修改计划中列出的文件。如发现确实需要额外文件，在变更摘要的"关键实现决策"中说明理由，但仍然只实现计划内的文件
+3. **遵循项目规范** — 参考 [project-conventions](../skills/project-conventions/SKILL.md)
+4. **小步验证** — 每完成一个逻辑单元就运行 LSP 检查
+5. **类型安全** — 绝不使用 `as any`、`@ts-ignore`、`@ts-expect-error`
 
 ## 工作步骤
 
