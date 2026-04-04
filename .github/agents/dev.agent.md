@@ -88,7 +88,7 @@ Dev 在正常流程中**永远不读取** `.dev/chunks/` 文件。
 - 基于 `development` 分支创建
 - 如果分支已存在（继续执行 chunk 场景），切换到该分支
 
-### Stage 4–5 → Chunk 迭代循环
+### Stage 4–6 → Chunk 迭代循环
 
 对于多 Chunk 任务，按 Chunk 编号顺序逐一执行以下循环，直到所有 Chunk 完成：
 
@@ -98,7 +98,9 @@ for each Chunk (1..N):
   Stage 5 → @verifier 验证 Chunk
   若验证失败 → @implementer 修复 → @verifier 重新验证（最多 2 次）
   若仍失败 → 停止流程，报告错误
-  Chunk 通过 → 进入下一个 Chunk
+  Chunk 通过 → Stage 6 提交
+  Stage 6 → commit + push（+ 首个 Chunk 时创建 Draft PR）
+  Gate ② → 询问用户：继续下一 Chunk / 暂停 / 中止
 ```
 
 #### Stage 4 → 委派给 @implementer（当前 Chunk）
@@ -115,14 +117,41 @@ implementer 完成后，**不要运行测试或验证** — 直接进入 Stage 5
 #### Stage 5 → 委派给 @verifier（当前 Chunk）
 
 - 调用 verifier，传递当前 Chunk 编号（verifier 自行发现变更文件并运行验证）
-- verifier 执行：类型检查 → ESLint → 测试运行
-- **验证通过** → 当前 Chunk 完成，进入下一个 Chunk 的 Stage 4
+- verifier 执行：类型检查 → ESLint → 测试运行 → 构建检查
+- **验证通过** → 进入 Stage 6 提交当前 Chunk
 - **验证失败** → 将错误详情回传给 @implementer 修复，然后重新调用 @verifier 验证
 - 最多重试 2 次，仍失败则停止流程，向用户报告错误
 
+#### Stage 6 → 提交当前 Chunk（dev 自身执行）
+
+验证通过后，dev **自身**执行以下步骤（不委派给 subagent）：
+
+1. **选择性暂存** — `git add` 仅暂存当前 Chunk 变更文件清单中的文件，不使用 `git add -A`
+2. **生成 commit message** — 格式：`<type>(<scope>): <description>`
+   - 单 Chunk 任务：正常 commit message
+   - 多 Chunk 任务：commit message 标注 Chunk 编号，如 `feat(auth): add data layer and store (chunk 1/3)`
+3. **向用户确认** — 调用 `vscode/askQuestions` 展示 commit message，选项：✅ 确认 / ✏️ 修改 / ❌ 取消
+4. **执行 commit** — 用户确认后执行 `git commit`
+5. **Push** — `git push origin {branch}` （首次 push 用 `-u`）
+6. **创建/更新 PR**（仅多 Chunk 任务）：
+   - **首个 Chunk**: 创建 Draft PR，标题包含完整功能描述，body 包含 Chunk 清单和当前进度
+   - **后续 Chunk**: PR 已存在，push 后自动更新，无需额外操作
+7. **更新 Manifest** — 将当前 Chunk 状态从 ⏳ 更新为 ✅，记录 commit hash
+
+#### Gate ② — Chunk 间确认
+
+每个 Chunk 提交并推送后，调用 `vscode/askQuestions` 询问用户：
+
+- ✅ 继续下一个 Chunk
+- ⏸️ 暂停（稍后恢复）
+- ❌ 中止
+
+用户选择继续后，进入下一个 Chunk 的 Stage 4。
+
 #### 所有 Chunk 完成后
 
-向用户展示整体完成摘要，进入后续流程（commit / PR）。
+1. 如果 PR 是 Draft → 提示用户是否标记为 Ready for Review
+2. 向用户展示整体完成摘要（所有 Chunk 的 commit 列表、PR 链接）
 
 ---
 
