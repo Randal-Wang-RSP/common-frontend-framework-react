@@ -2,7 +2,7 @@
 name: verifier
 description: "代码验证器：运行类型检查、ESLint、测试、构建，报告结果"
 user-invocable: false
-model: GPT-4.1 (copilot)
+model: Claude Sonnet 4.6 (copilot)
 tools:
   - search
   - read
