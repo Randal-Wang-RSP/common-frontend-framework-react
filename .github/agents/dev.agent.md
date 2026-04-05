@@ -1,7 +1,7 @@
 ---
 name: dev
 description: "前端开发全流程协调器：从需求到 PR 就绪。支持 Jira 驱动或需求描述驱动，支持 --figma 参数提供设计稿"
-model: Claude Opus 4.6 (copilot)
+model: Claude Sonnet 4.5 (copilot)
 agents:
   - planner
   - implementer
@@ -106,7 +106,7 @@ development
 - 所有 PR 都 target `development`（非前一个 chunk 的分支）
 - 优先使用 planner 返回的 `branch-suggestion`（planner 会对每个 chunk 生成独立分支名）
 
-**首个 Chunk 的分支在 Gate ① 确认后、Stage 4 之前创建。后续 Chunk 的分支在 Gate ② 确认继续后、下一个 Stage 4 之前创建。**
+**首个 Chunk 的分支在 Gate ① 确认后、Stage 4 之前创建。后续 Chunk 的分支在 Chunk 摘要确认后、Stage 4 之前创建。**
 
 ### Stage 4–6 → Chunk 迭代循环
 
@@ -115,28 +115,36 @@ development
 ```
 for each Chunk (1..N):
   创建 Chunk 分支（Stage 3 规则）
-  Chunk 摘要展示（信息性，无需确认）
+  Chunk 摘要展示 + Gate ②（展示下一 Chunk 计划，用户确认继续）
   Stage 4 → @implementer 实现 Chunk
   Stage 5 → @verifier 验证 Chunk
   若验证失败 → @implementer 修复 → @verifier 重新验证（最多 2 次）
   若仍失败 → 停止流程，报告错误
   Chunk 通过 → Stage 6 提交 + push + 创建 PR
-  Gate ② → 询问用户：继续下一 Chunk / 暂停 / 中止
 ```
 
-#### Chunk 摘要展示（每个 Chunk 开始前）
+#### Chunk 摘要展示 + Gate ②（每个 Chunk 开始前）
 
-在进入 Stage 4 之前，dev 向用户展示当前 Chunk 的简要摘要（无需用户确认，展示后直接进入 Stage 4）：
+在进入 Stage 4 之前，dev 向用户展示当前 Chunk 的计划摘要：
 
 ```markdown
-### 开始 Chunk {N}/{Total}: {Chunk 名称}
+### Chunk {N}/{Total}: {Chunk 名称}
 
 - **模式**: 🎨/⚙️/🔀
+- **分支**: `feat/{task}-chunk-{N}`
 - **变更文件**: {文件数} 个（{新增数} 新增，{修改数} 修改）
 - **关键内容**: {1-2 句话概括该 Chunk 做什么}
 ```
 
-此摘要从 Manifest 文件中提取，帮助用户了解当前进度。**不需要用户确认**（用户已在 Gate ① 确认了全部计划）。
+**Chunk 1**: 用户已在 Gate ① 确认整体计划，Chunk 摘要展示后**直接进入 Stage 4**，无需再次确认。
+
+**Chunk 2+**: 展示摘要后，调用 `vscode/askQuestions` 让用户确认：
+
+- ✅ 继续实施
+- ⏸️ 暂停（稍后恢复）
+- ❌ 中止
+
+用户确认后进入 Stage 4。这样用户在看到下一步计划的上下文后再做决定，比 commit 后确认更自然。
 
 #### Stage 4 → 委派给 @implementer（当前 Chunk）
 
@@ -163,7 +171,7 @@ implementer 完成后，**不要运行测试或验证** — 直接进入 Stage 5
 
 ##### 6a. Commit
 
-1. **选择性暂存** — `git add` 仅暂存当前 Chunk 变更文件清单中的文件，不使用 `git add -A`
+1. **选择性暂存** — `git add` 暂存当前 Chunk 变更文件清单中的文件 + `.dev/chunks/` Manifest 文件，不使用 `git add -A`
 2. **生成 commit message** — 格式：`<type>(<scope>): <description>`
    - 单 Chunk 任务：正常 commit message
    - 多 Chunk 任务：commit message 标注 Chunk 编号，如 `feat(auth): add data layer and store (chunk 1/3)`
@@ -214,16 +222,6 @@ implementer 完成后，**不要运行测试或验证** — 直接进入 Stage 5
 
 - 将当前 Chunk 状态从 ⏳ 更新为 ✅
 - 记录 commit hash 和 PR 编号
-
-#### Gate ② — Chunk 间确认
-
-每个 Chunk 提交并推送后，调用 `vscode/askQuestions` 询问用户：
-
-- ✅ 继续下一个 Chunk
-- ⏸️ 暂停（稍后恢复）
-- ❌ 中止
-
-用户选择继续后，进入下一个 Chunk 的 Stage 4。
 
 #### 所有 Chunk 完成后
 
