@@ -1,7 +1,7 @@
 ---
 name: dev
 description: "前端开发全流程协调器：从需求到 PR 就绪。支持 Jira 驱动或需求描述驱动，支持 --figma 参数提供设计稿"
-model: Claude Sonnet 4.5 (copilot)
+model: Claude Sonnet 4.6 (copilot)
 agents:
   - planner
   - implementer
