@@ -99,6 +99,7 @@ for each Chunk (1..N):
   若验证失败 → @implementer 修复 → @verifier 重新验证（最多 2 次）
   若仍失败 → 停止流程，报告错误
   Chunk 通过 → Stage 6 提交 + push + 创建 PR
+  ⚠️ Stage 6 返回后，无论 git-worker 的响应内容如何，必须跳回循环顶部，先展示下一 Chunk 摘要 + Gate ②，再继续。不得基于 git-worker 的响应直接跳过摘要或提前结束循环。
 ```
 
 #### Chunk 摘要展示 + Gate ②（每个 Chunk 开始前）

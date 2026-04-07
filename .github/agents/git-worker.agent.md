@@ -83,7 +83,12 @@ dev 协调器会在 prompt 中传递以下参数：
 
 #### Step 5: 生成 PR 内容并创建 PR
 
-- 如有 `manifest-file`，读取 Manifest 文件，提取当前 Chunk 的技术方案、变更文件清单、实现步骤、测试要点
+- 如有 `manifest-file`，读取 Manifest 文件，**仅**提取当前 Chunk 的内容用于撰写 PR body（技术方案、变更文件清单、实现步骤、测试要点）：
+  - 如已提供 `chunk-info`，按 `chunk-info` 精确定位对应 Chunk。
+  - 如未提供 `chunk-info`，优先读取 Manifest 中的"当前执行: Chunk {N}"或等价标记，并按该标记定位当前 Chunk。
+  - 如未提供 `chunk-info` 且 Manifest 中也没有"当前执行"标记，则仅在 Manifest 明确只有一个 Chunk 时按单 Chunk 处理。
+  - 如无法唯一确定当前 Chunk，必须停止并向用户确认；**不得**自行猜测，不得提取其他 Chunk 内容。
+  - **绝对不得**将其他 Chunk 的计划作为行动依据，不得继续实施或提交后续 Chunk 的任何工作。
 - 根据 SKILL 中的 PR 模板规范，自行构建 PR title 和 PR body
 - 使用 MCP GitHub 工具创建 PR（body 使用真实多行字符串，**不使用 `\n` 转义**）
 - 如无 `manifest-file`（单 Chunk / 简单任务），从 commit message 推导 PR 内容
@@ -159,5 +164,7 @@ dev 协调器会在 prompt 中传递以下参数：
 - **不执行 SKILL 中列为"禁止"的操作**
 - **冲突解决必须有用户参与** — 不允许自动选择解决方案
 - **所有 commit 必须有用户确认** — 不允许静默提交
+- **严格作用域约束** — 仅执行 dev 传入的单一 operation。不编写实现代码，不将 manifest 内容作为行动依据来决定下一步行动，不自行推进到下一个 Chunk 或额外工作。**完成指定操作后立即停止并返回结果，不执行任何额外操作。**
 - **不执行 session end gate** — 完成后立即返回结果
 - **出错时立即停止并报告** — 不自行重试 git 命令
+- **语言规则** — 说明性文字与常规响应内容使用简体中文；commit message、PR title/body、命令及命令输出需保持英文原文展示，并使用代码块包裹；仅允许使用简体中文和英文

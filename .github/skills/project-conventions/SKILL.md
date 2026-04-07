@@ -138,7 +138,38 @@ import styles from "./UserProfile.module.css"
 - Prefer `interface` for object shapes, `type` for unions/utilities
 - Prefix unused parameters with `_`
 
-## Naming Conventions
+## JSDoc Conventions
+
+Add JSDoc to the following — no need for obvious getters or internal helpers:
+
+| Target                                                          | Required fields                                                                                      |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Exported utility / API functions (`lib/`, `api/`)               | One-line summary + `@param` for each actual parameter + `@returns` when non-`void` / non-`undefined` |
+| Exported hooks (`useXxxQuery`, `useXxxMutation`, `useXxxStore`) | One-line summary + `@param` for each actual parameter + `@returns` when non-`void` / non-`undefined` |
+| Exported React components (public UI)                           | One-line summary + `@param` for each actual parameter + `@returns` when non-`void` / non-`undefined` |
+| Module-level barrel (`index.ts`) with non-obvious exports       | Module-level `/** ... */` block                                                                      |
+
+**Style:**
+
+```ts
+// ✅ Exported API function
+/**
+ * Authenticates a user and returns a token with user info.
+ * @param data - Login credentials (email + password)
+ * @returns Auth response containing token and user
+ */
+export async function login(data: LoginRequest): Promise<AuthResponse> { ... }
+
+// ✅ Exported hook
+/**
+ * Mutation hook for user login. On success, persists token via auth store.
+ * @returns TanStack Query mutation object
+ */
+export function useLoginMutation() { ... }
+
+// ❌ Skip — internal helper, obvious purpose
+function buildHeaders(token: string) { ... }
+```
 
 | Type             | Convention               | Example                               |
 | ---------------- | ------------------------ | ------------------------------------- |
