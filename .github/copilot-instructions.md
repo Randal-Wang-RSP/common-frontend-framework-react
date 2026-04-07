@@ -42,7 +42,7 @@
 
 - Commit format: `<type>(<scope>): <subject>`
 - Types: feat | fix | refactor | style | test | chore | docs | perf
-- Branch format: `feature/{ticket}-{desc}`, `fix/{ticket}-{desc}`
+- Branch format: `feat/{ticket}-{desc}`, `fix/{ticket}-{desc}`
 
 ## Forbidden
 
