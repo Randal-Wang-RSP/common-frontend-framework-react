@@ -25,18 +25,18 @@ agents: []
 
 dev 协调器会在 prompt 中传递以下参数：
 
-| 参数          | 必填   | 说明                         |
-| ------------- | ------ | ---------------------------- |
-| operation     | ✅     | 操作类型（见下方支持的操作） |
-| branch        | 视操作 | 目标分支名                   |
-| base-branch   | 视操作 | 基础分支（创建分支时）       |
-| files         | 视操作 | 需要暂存的文件列表           |
-| commit-draft  | 视操作 | commit message 草稿          |
-| pr-title      | 视操作 | PR 标题                      |
-| pr-body       | 视操作 | PR body 内容                 |
-| pr-target     | 视操作 | PR 目标分支                  |
-| chunk-info    | 可选   | Chunk 编号和总数（如 "2/3"） |
-| manifest-file | 可选   | `.dev/chunks/` 文件路径      |
+| 参数           | 必填   | 说明                                              |
+| -------------- | ------ | ------------------------------------------------- |
+| operation      | ✅     | 操作类型（见下方支持的操作）                      |
+| branch         | 视操作 | 目标分支名                                        |
+| base-branch    | 视操作 | 基础分支（创建分支时）                            |
+| files          | 视操作 | 需要暂存的文件列表                                |
+| commit-message | 视操作 | 已确认的 commit message（`commit-and-pr` 时必填） |
+| pr-title       | 视操作 | 已确认的 PR 标题（`commit-and-pr` 时必填）        |
+| pr-body        | 视操作 | 已确认的 PR body 内容（`commit-and-pr` 时必填）   |
+| pr-target      | 视操作 | PR 目标分支                                       |
+| chunk-info     | 可选   | Chunk 编号和总数（如 "2/3"）                      |
+| manifest-file  | 可选   | `.dev/chunks/` 文件路径                           |
 
 ## 支持的操作
 
@@ -48,11 +48,59 @@ dev 协调器会在 prompt 中传递以下参数：
 2. 执行 `git checkout -b {branch} --no-track {base-branch}`（**必须使用 `--no-track`**）
 3. 返回确认信息
 
-### `commit-and-pr` — 提交、推送并创建 PR（一体化操作）
+### `draft-commit-pr` — 生成 commit message 和 PR 内容草稿（不执行）
 
 **输入**: `files`, `branch`, `chunk-info`（可选）, `manifest-file`（可选）, `pr-target`（可选）
 
-此操作自动完成从 commit 到 PR 创建的完整流程。如未传 `pr-target`，根据 SKILL 中的 PR Target 规则从 branch 名自动推导：
+此操作**仅生成草稿，不执行 `git commit`，不创建 PR，不调用 `vscode/askQuestions`**。用于让 dev 协调器在主对话线程中向用户展示确认内容。
+
+#### Step 1: 选择性暂存
+
+- 逐个 `git add` 指定的 `files`
+- 如有 `manifest-file`，同时暂存 Manifest 文件
+- ❌ 禁止 `git add -A` 或 `git add .`
+
+#### Step 2: 分析变更并生成草稿
+
+- 运行 `git diff --cached --stat` 查看暂存的变更概况
+- 根据变更内容和 SKILL 中的 Conventional Commit 规范，生成 commit message
+- 如有 `chunk-info`，在标题中标注 Chunk 编号（如 `feat(auth): add login form (chunk 2/3)`）
+- 如未传 `pr-target`，根据 SKILL 中的 PR Target 规则从 branch 名自动推导
+- 如有 `manifest-file`，读取 Manifest 文件，**仅**提取当前 Chunk 内容撰写 PR body：
+  - 如已提供 `chunk-info`，按 `chunk-info` 精确定位对应 Chunk。
+  - 如未提供 `chunk-info`，优先读取 Manifest 中的"当前执行: Chunk {N}"或等价标记。
+  - 如无法唯一确定当前 Chunk，必须停止并向用户确认；**不得**自行猜测。
+  - **绝对不得**将其他 Chunk 的计划作为行动依据。
+- 如无 `manifest-file`（单 Chunk / 简单任务），从 commit message 推导 PR 内容
+
+#### Step 3: 撤销暂存
+
+- 执行 `git reset HEAD` 撤销 Step 1 的暂存（尚未确认，不应保留暂存状态）
+
+#### 返回
+
+**不调用 `vscode/askQuestions`，不执行 `git commit`，不创建 PR。** 将以下内容作为结果返回给 dev 协调器：
+
+```
+DRAFT_RESULT
+commit-message: |
+  {生成的完整 commit message}
+pr-title: {PR 标题}
+pr-body: |
+  {PR body 全文}
+pr-target: {目标分支}
+END_DRAFT_RESULT
+```
+
+---
+
+### `commit-and-pr` — 提交、推送并创建 PR（执行操作）
+
+**输入**: `files`, `branch`, `commit-message`, `pr-title`, `pr-body`, `pr-target`, `chunk-info`（可选）, `manifest-file`（可选）
+
+此操作执行已确认的 commit 和 PR 创建。**`commit-message`、`pr-title`、`pr-body` 由调用方提供（已经过用户确认），本操作不再向用户确认。**
+
+如未传 `pr-target`，根据 SKILL 中的 PR Target 规则从 branch 名自动推导：
 
 - `feat/*` / `fix/*` / `refactor/*` / `perf/*` / `docs/*` / `chore/*` → `development`
 - `release/*` → `main`
@@ -64,36 +112,17 @@ dev 协调器会在 prompt 中传递以下参数：
 - 如有 `manifest-file`，同时暂存 Manifest 文件
 - ❌ 禁止 `git add -A` 或 `git add .`
 
-#### Step 2: 分析变更并生成 commit message
+#### Step 2: 执行 commit 并 push
 
-- 运行 `git diff --cached --stat` 查看暂存的变更概况
-- 根据变更内容和 SKILL 中的 Conventional Commit 规范，自行生成 commit message
-- 如有 `chunk-info`，在标题中标注 Chunk 编号（如 `feat(auth): add login form (chunk 2/3)`）
-- 在回复中展示格式化的 commit message 预览
-
-#### Step 3: 用户确认 commit message
-
-- 调用 `vscode/askQuestions`：✅ 确认 / ✏️ 修改 / ❌ 取消
-- 如果用户选择修改，接受新的 message 并继续
-
-#### Step 4: 执行 commit 并 push
-
-- `git commit -m "{confirmed-message}"`
+- `git commit -m "{commit-message}"`（使用调用方提供的已确认 message）
 - `git push -u origin {branch}`
 
-#### Step 5: 生成 PR 内容并创建 PR
+#### Step 3: 创建 PR
 
-- 如有 `manifest-file`，读取 Manifest 文件，**仅**提取当前 Chunk 的内容用于撰写 PR body（技术方案、变更文件清单、实现步骤、测试要点）：
-  - 如已提供 `chunk-info`，按 `chunk-info` 精确定位对应 Chunk。
-  - 如未提供 `chunk-info`，优先读取 Manifest 中的"当前执行: Chunk {N}"或等价标记，并按该标记定位当前 Chunk。
-  - 如未提供 `chunk-info` 且 Manifest 中也没有"当前执行"标记，则仅在 Manifest 明确只有一个 Chunk 时按单 Chunk 处理。
-  - 如无法唯一确定当前 Chunk，必须停止并向用户确认；**不得**自行猜测，不得提取其他 Chunk 内容。
-  - **绝对不得**将其他 Chunk 的计划作为行动依据，不得继续实施或提交后续 Chunk 的任何工作。
-- 根据 SKILL 中的 PR 模板规范，自行构建 PR title 和 PR body
+- 使用调用方提供的 `pr-title` 和 `pr-body` 创建 PR
 - 使用 MCP GitHub 工具创建 PR（body 使用真实多行字符串，**不使用 `\n` 转义**）
-- 如无 `manifest-file`（单 Chunk / 简单任务），从 commit message 推导 PR 内容
 
-#### Step 6: 更新 Manifest
+#### Step 4: 更新 Manifest
 
 - 如有 `manifest-file`，将当前 Chunk 状态从 ⏳ 更新为 ✅
 - 记录 commit hash 和 PR 编号
@@ -163,7 +192,9 @@ dev 协调器会在 prompt 中传递以下参数：
 - **严格遵循 git-workflow SKILL** — 所有规则以 SKILL.md 为准
 - **不执行 SKILL 中列为"禁止"的操作**
 - **冲突解决必须有用户参与** — 不允许自动选择解决方案
-- **所有 commit 必须有用户确认** — 不允许静默提交
+- **`draft-commit-pr` 禁止调用 `vscode/askQuestions`** — 此操作仅生成草稿返回给 dev 协调器，确认流程由 dev 在主对话线程中执行
+- **`commit-and-pr` 不再向用户确认** — 此操作接收已确认的 message，直接执行
+- **其他操作中所有 commit 必须有用户确认** — 不允许静默提交
 - **严格作用域约束** — 仅执行 dev 传入的单一 operation。不编写实现代码，不将 manifest 内容作为行动依据来决定下一步行动，不自行推进到下一个 Chunk 或额外工作。**完成指定操作后立即停止并返回结果，不执行任何额外操作。**
 - **不执行 session end gate** — 完成后立即返回结果
 - **出错时立即停止并报告** — 不自行重试 git 命令
