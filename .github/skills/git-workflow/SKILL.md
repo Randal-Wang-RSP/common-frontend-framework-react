@@ -40,6 +40,23 @@ development
 - 所有 PR 都 target 到 `development`（非前一个 chunk 的分支）
 - 优先使用 planner 返回的 `branch-suggestion`
 
+### 分支创建命令
+
+**必须使用 `--no-track` 防止意外推送到基础分支：**
+
+```bash
+# 正确：创建分支时不自动追踪基础分支
+git checkout -b feat/my-feature --no-track origin/development
+
+# 创建后立即设置正确的 upstream
+git push -u origin feat/my-feature
+```
+
+```bash
+# ❌ 禁止：不使用 --no-track（会自动追踪 origin/development，可能导致意外推送）
+git checkout -b feat/my-feature origin/development
+```
+
 ### 分支创建时机
 
 - **单 Chunk**: Gate ① 确认后、实现前创建
@@ -340,6 +357,7 @@ git push origin --delete {branch-name}
 - ❌ `git push --force`（使用 `--force-with-lease`）
 - ❌ Rebase 主分支 (`main` / `development`)
 - ❌ 直接向 `main` 或 `development` push
+- ❌ 创建分支时不带 `--no-track`（防止意外推送到基础分支）
 - ❌ PR body 中使用 `\n` 转义
 - ❌ 跳过用户确认直接 commit
 - ❌ 提交 `.env` 文件或 secrets

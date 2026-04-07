@@ -45,7 +45,7 @@ dev 协调器会在 prompt 中传递以下参数：
 **输入**: `branch`, `base-branch`
 
 1. 确认当前在正确的 base branch 上
-2. 执行 `git checkout -b {branch} {base-branch}`
+2. 执行 `git checkout -b {branch} --no-track {base-branch}`（**必须使用 `--no-track`**）
 3. 返回确认信息
 
 ### `commit-and-pr` — 提交、推送并创建 PR（一体化操作）
