@@ -10,8 +10,7 @@ agents:
 tools:
   - agent
   - todo
-  - read
-  - edit
+  - read # 仅限读取 .dev/chunks/ 下的 Manifest 文件（会话恢复）
   - execute/runInTerminal # for git branch operations
   - vscode/askQuestions
 argument-hint: 描述需要实现的功能或任务
@@ -162,5 +161,22 @@ implementer 完成后，**不要运行测试或验证** — 直接进入 Stage 5
 2. 提示用户按顺序 review 和 merge 各 PR
 
 ---
+
+## 工具使用约束
+
+### `read` 工具的合法使用范围
+
+Dev 的 `read` 工具**仅限**以下场景：
+
+- **会话恢复**：读取 `.dev/chunks/` 下的 Manifest 文件，定位当前进度（未完成的 Chunk）
+- **其他场景**：不允许
+
+**明确禁止读取的文件类型：**
+
+- `.github/skills/` — skill 文件由各 sub-agent 自行加载，dev 无需读取
+- `src/` — 源码由 planner / implementer / verifier 读取，dev 不关心实现细节
+- `.github/agents/` — agent 定义文件（dev 已在当前上下文中）
+
+> Dev 是**编排器**，不是执行者。它编排 sub-agents，不自己读取技术文档或源码。Skill 加载是 planner / implementer / verifier / git-worker 各自的职责。
 
 _需要向用户确认信息时，调用 `vscode/askQuestions` 工具。_
