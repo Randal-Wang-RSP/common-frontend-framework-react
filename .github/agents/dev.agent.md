@@ -143,15 +143,67 @@ implementer 完成后，**不要运行测试或验证** — 直接进入 Stage 5
 - **验证失败** → 将错误详情回传给 @implementer 修复，然后重新调用 @verifier 验证
 - 最多重试 2 次，仍失败则停止流程，向用户报告错误
 
-#### Stage 6 → 委派给 @git-worker 提交并创建 PR
+#### Stage 6 → 委派给 @git-worker 提交并创建 PR（两阶段确认）
 
-验证通过后，委派 `@git-worker` 执行 `commit-and-pr` 操作，传递：
+验证通过后，Stage 6 分为两个阶段，确保用户在主对话线程中看到 commit message 和 PR 内容：
+
+##### 阶段 A: 生成草稿
+
+委派 `@git-worker` 执行 `draft-commit-pr` 操作，传递：
 
 - **files**: 当前 Chunk 变更文件清单
 - **branch**: 当前 Chunk 分支名
 - **chunk-info**: Chunk 编号/总数（如 "2/3"）
 - **manifest-file**: `.dev/chunks/` 文件路径
-  git-worker 会根据当前分支类型自动推导 PR target（详见 git-workflow SKILL），并自行从 Manifest 和 SKILL 推导 commit message、PR 标题和 PR body，向用户确认后执行。完成后返回 commit hash 和 PR URL。
+
+git-worker 会暂存文件、分析变更、生成 commit message 和 PR 内容草稿，然后**撤销暂存并返回草稿**（不执行 commit，不创建 PR）。
+
+##### 阶段 B: 主线程展示 + 用户确认
+
+Dev 从 git-worker 返回的 `DRAFT_RESULT` 块中提取内容，**在主对话回复正文中**展示格式化的 commit message 和 PR 内容：
+
+```markdown
+**Commit Message:**
+
+\`\`\`
+feat(auth): add login form (chunk 2/3)
+
+- Add LoginForm container component with email/password fields
+- Integrate form validation with real-time feedback
+- Connect to auth API via TanStack Query mutation
+  \`\`\`
+
+**PR Title:** `feat(auth): add login form UI (chunk 2/3)`
+
+**PR Body:**
+
+> ## Chunk 2/3: Login Page
+>
+> ### 技术方案
+>
+> ...
+```
+
+然后调用 `vscode/askQuestions`：✅ 确认 / ✏️ 修改 / ❌ 取消
+
+- **确认** → 进入阶段 C
+- **修改** → 接受用户新内容，更新对应字段，进入阶段 C
+- **取消** → 终止 Stage 6
+
+##### 阶段 C: 执行提交
+
+用户确认后，委派 `@git-worker` 执行 `commit-and-pr` 操作，传递**已确认的完整内容**：
+
+- **files**: 当前 Chunk 变更文件清单
+- **branch**: 当前 Chunk 分支名
+- **commit-message**: 已确认的 commit message
+- **pr-title**: 已确认的 PR 标题
+- **pr-body**: 已确认的 PR body
+- **pr-target**: 从草稿中获取的目标分支
+- **chunk-info**: Chunk 编号/总数
+- **manifest-file**: `.dev/chunks/` 文件路径
+
+git-worker 直接执行 commit、push、创建 PR、更新 Manifest，不再向用户确认。完成后返回 commit hash 和 PR URL。
 
 #### 所有 Chunk 完成后
 
