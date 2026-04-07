@@ -10,7 +10,6 @@ tools:
   - execute/runInTerminal # git 命令
   - vscode/askQuestions # 冲突策略/版本确认（例外：本 agent 需要用户交互）
   - github/* # GitHub 操作相关
-agents: []
 ---
 
 # Git Worker — Git 操作专家
@@ -69,13 +68,14 @@ dev 协调器会在 prompt 中传递以下参数：
 - 如有 `manifest-file`，读取 Manifest 文件，**仅**提取当前 Chunk 内容撰写 PR body：
   - 如已提供 `chunk-info`，按 `chunk-info` 精确定位对应 Chunk。
   - 如未提供 `chunk-info`，优先读取 Manifest 中的"当前执行: Chunk {N}"或等价标记。
-  - 如无法唯一确定当前 Chunk，必须停止并向用户确认；**不得**自行猜测。
+  - 如无法唯一确定当前 Chunk，必须停止，并将"需要澄清/无法唯一确定当前 Chunk"的原因作为结果返回给 dev 协调器，由 dev 在主线程向用户确认后再重试；**不得**自行猜测。
   - **绝对不得**将其他 Chunk 的计划作为行动依据。
 - 如无 `manifest-file`（单 Chunk / 简单任务），从 commit message 推导 PR 内容
 
 #### Step 3: 撤销暂存
 
-- 执行 `git reset HEAD` 撤销 Step 1 的暂存（尚未确认，不应保留暂存状态）
+- 仅对 Step 1 暂存的文件执行 `git restore --staged -- <files...>`（包括 manifest 文件）
+- ❌ 不要使用 `git reset HEAD`（会清除所有暂存内容，包括用户在调用前已有的 staged 变更）
 
 #### 返回
 
@@ -114,7 +114,8 @@ END_DRAFT_RESULT
 
 #### Step 2: 执行 commit 并 push
 
-- `git commit -m "{commit-message}"`（使用调用方提供的已确认 message）
+- 使用调用方提供的已确认完整 message，通过 stdin 或临时文件传入 commit 内容，例如：`git commit -F -` 或 `git commit -F <tempfile>`
+- ❌ 不要使用 `git commit -m "{commit-message}"` 直接内联完整 message，避免多行 body、引号或换行导致提交内容不完整或命令失败
 - `git push -u origin {branch}`
 
 #### Step 3: 创建 PR

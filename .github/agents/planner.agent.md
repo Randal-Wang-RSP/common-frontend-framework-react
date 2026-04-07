@@ -8,7 +8,6 @@ tools:
   - read
   - edit # only for updating plan files under .dev/chunks/
   - atlassian/*
-agents: []
 ---
 
 # Planner — 需求分析 & 分块规划

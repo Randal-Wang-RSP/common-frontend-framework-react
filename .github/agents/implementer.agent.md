@@ -8,7 +8,6 @@ tools:
   - edit
   - talktofigma/*
   - figma/*
-agents: []
 ---
 
 # Implementer — 代码实现

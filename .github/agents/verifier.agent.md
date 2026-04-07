@@ -7,7 +7,6 @@ tools:
   - search
   - read
   - execute/runInTerminal
-agents: []
 ---
 
 # Verifier — 代码验证
